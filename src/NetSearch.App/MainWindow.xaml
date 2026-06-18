@@ -2,71 +2,157 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:NetSearch.App"
-        Title="NetSearch" Height="650" Width="1000">
-    <Grid Margin="8">
+        xmlns:helpers="clr-namespace:NetSearch.App.Helpers"
+        Title="NetSearch" Height="680" Width="1060"
+        Background="{StaticResource BgBrush}" FontFamily="Segoe UI">
+    <Grid Margin="14">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>   <!-- 0 header -->
+            <RowDefinition Height="Auto"/>   <!-- 1 search -->
+            <RowDefinition Height="Auto"/>   <!-- 2 mode + actions -->
+            <RowDefinition Height="Auto"/>   <!-- 3 filters panel (collapsible) -->
+            <RowDefinition Height="*"/>      <!-- 4 results -->
+            <RowDefinition Height="Auto"/>   <!-- 5 progress -->
+            <RowDefinition Height="Auto"/>   <!-- 6 status -->
         </Grid.RowDefinitions>
 
-        <!-- Search bar -->
-        <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,6">
-            <ComboBox DockPanel.Dock="Left" Width="110" Margin="0,0,6,0"
-                      ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}"/>
-            <Button DockPanel.Dock="Right" Content="Настройки" Width="90" Margin="6,0,0,0"
-                    Command="{Binding OpenSettingsCommand}"/>
-            <Button DockPanel.Dock="Right" Content="Обновить" Width="90" Margin="6,0,0,0"
-                    Command="{Binding RefreshCommand}" IsEnabled="{Binding IsBusy, Converter={x:Static local:NotConverter.Instance}}"/>
-            <Button DockPanel.Dock="Right" Content="Отмена" Width="80" Margin="6,0,0,0"
-                    Command="{Binding CancelRefreshCommand}" IsEnabled="{Binding IsBusy}"/>
-            <Button DockPanel.Dock="Right" Content="По содержимому" Width="120"
-                    Command="{Binding ContentSearchCommand}"/>
-            <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                     VerticalContentAlignment="Center" FontSize="14"/>
+        <!-- Header -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock DockPanel.Dock="Left" Text="🔍  NetSearch" FontSize="20" FontWeight="SemiBold"
+                       VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="⚙  Настройки" Command="{Binding OpenSettingsCommand}" Margin="0,0,8,0"
+                        ToolTip="Сетевые пути, авто-обновление и параметры поиска по содержимому"/>
+                <Button Content="⟳  Обновить" Style="{StaticResource AccentButton}"
+                        Command="{Binding RefreshCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={x:Static local:NotConverter.Instance}}"
+                        ToolTip="Пересканировать сетевые пути и обновить индекс"/>
+            </StackPanel>
         </DockPanel>
 
-        <!-- Filters -->
-        <WrapPanel Grid.Row="1" Margin="0,0,0,6">
-            <TextBlock Text="Размер от:" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            <TextBox Text="{Binding MinSize, UpdateSourceTrigger=PropertyChanged}" Width="70" Margin="0,0,8,0"/>
-            <TextBlock Text="до:" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            <TextBox Text="{Binding MaxSize, UpdateSourceTrigger=PropertyChanged}" Width="70" Margin="0,0,8,0"/>
-            <TextBlock Text="Типы:" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            <TextBox Text="{Binding Extensions, UpdateSourceTrigger=PropertyChanged}" Width="160" Margin="0,0,8,0"/>
-            <TextBlock Text="Что:" VerticalAlignment="Center" Margin="0,0,4,0"/>
-            <ComboBox ItemsSource="{Binding Kinds}" SelectedItem="{Binding SelectedKind}" Width="120"/>
-        </WrapPanel>
+        <!-- Hero search -->
+        <TextBox Grid.Row="1" Style="{StaticResource SearchBox}"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                 helpers:PlaceholderHelper.Placeholder="Введите имя файла или папки…"
+                 ToolTip="Начните печатать — список отфильтруется по мере ввода"/>
 
-        <!-- Results -->
-        <DataGrid Grid.Row="2" ItemsSource="{Binding Results}" AutoGenerateColumns="False"
-                  IsReadOnly="True" SelectionMode="Single"
-                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                  EnableRowVirtualization="True"
-                  SelectedItem="{Binding SelectedRow, Mode=OneWayToSource}"
-                  MouseDoubleClick="OnRowDoubleClick">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="240"/>
-                <DataGridTextColumn Header="Путь" Binding="{Binding Path}" Width="*"/>
-                <DataGridTextColumn Header="Размер" Binding="{Binding SizeText}" Width="90"/>
-                <DataGridTextColumn Header="Изменён" Binding="{Binding Modified}" Width="130"/>
-                <DataGridTextColumn Header="Тип" Binding="{Binding Type}" Width="80"/>
-            </DataGrid.Columns>
-            <DataGrid.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Header="Открыть"
-                              Command="{Binding PlacementTarget.DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                    <MenuItem Header="Открыть папку"
-                              Command="{Binding PlacementTarget.DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                    <MenuItem Header="Копировать путь"
-                              Command="{Binding PlacementTarget.DataContext.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                </ContextMenu>
-            </DataGrid.ContextMenu>
-        </DataGrid>
+        <!-- Mode + actions + filters toggle -->
+        <DockPanel Grid.Row="2" Margin="0,10,0,0">
+            <TextBlock Text="Искать:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <RadioButton Content="Имя" GroupName="mode" Style="{StaticResource SegmentToggle}" Margin="0,0,6,0"
+                         IsChecked="{Binding SelectedMode, Converter={StaticResource EnumMatch}, ConverterParameter=Substring}"
+                         ToolTip="Поиск по части имени"/>
+            <RadioButton Content="Маска" GroupName="mode" Style="{StaticResource SegmentToggle}" Margin="0,0,6,0"
+                         IsChecked="{Binding SelectedMode, Converter={StaticResource EnumMatch}, ConverterParameter=Wildcard}"
+                         ToolTip="Шаблоны со знаками * и ? — например *.pdf"/>
+            <RadioButton Content="Regex" GroupName="mode" Style="{StaticResource SegmentToggle}"
+                         IsChecked="{Binding SelectedMode, Converter={StaticResource EnumMatch}, ConverterParameter=Regex}"
+                         ToolTip="Регулярное выражение для опытных пользователей"/>
 
-        <StatusBar Grid.Row="3">
-            <TextBlock Text="{Binding StatusText}"/>
-        </StatusBar>
+            <ToggleButton DockPanel.Dock="Right" Content="▾ Фильтры" Style="{StaticResource FilterToggle}"
+                          IsChecked="{Binding FiltersExpanded}"
+                          ToolTip="Дополнительные условия: размер, дата, тип"/>
+            <Button DockPanel.Dock="Right" Content="🔎 По содержимому" Command="{Binding ContentSearchCommand}"
+                    Margin="0,0,8,0"
+                    ToolTip="Искать текст ВНУТРИ уже найденных по имени файлов"/>
+            <TextBlock/>
+        </DockPanel>
+
+        <!-- Filters panel (collapsible; Collapsed row takes 0 height) -->
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Margin="0,10,0,0"
+                Visibility="{Binding FiltersExpanded, Converter={StaticResource BoolToVis}}">
+            <WrapPanel>
+                <TextBlock Text="Размер:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Width="80" Margin="0,0,4,8" Text="{Binding MinSize, UpdateSourceTrigger=PropertyChanged}"
+                         helpers:PlaceholderHelper.Placeholder="напр. 10МБ" ToolTip="Минимальный размер (КБ/МБ/ГБ)"/>
+                <TextBlock Text="–" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Width="80" Margin="0,0,16,8" Text="{Binding MaxSize, UpdateSourceTrigger=PropertyChanged}"
+                         helpers:PlaceholderHelper.Placeholder="напр. 1ГБ" ToolTip="Максимальный размер (КБ/МБ/ГБ)"/>
+
+                <TextBlock Text="Изменён:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <DatePicker Width="120" Margin="0,0,4,8" SelectedDate="{Binding ModifiedAfter}"
+                            ToolTip="Изменён не раньше этой даты"/>
+                <TextBlock Text="–" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <DatePicker Width="120" Margin="0,0,16,8" SelectedDate="{Binding ModifiedBefore}"
+                            ToolTip="Изменён не позже этой даты"/>
+
+                <TextBlock Text="Тип:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <Button Content="PDF" Command="{Binding QuickTypeCommand}" CommandParameter="PDF" Margin="0,0,4,8" Padding="8,4"/>
+                <Button Content="Word" Command="{Binding QuickTypeCommand}" CommandParameter="Word" Margin="0,0,4,8" Padding="8,4"/>
+                <Button Content="Excel" Command="{Binding QuickTypeCommand}" CommandParameter="Excel" Margin="0,0,4,8" Padding="8,4"/>
+                <Button Content="Фото" Command="{Binding QuickTypeCommand}" CommandParameter="Фото" Margin="0,0,6,8" Padding="8,4"/>
+                <TextBox Width="150" Margin="0,0,16,8" Text="{Binding Extensions, UpdateSourceTrigger=PropertyChanged}"
+                         helpers:PlaceholderHelper.Placeholder="pdf, docx" ToolTip="Расширения через запятую"/>
+
+                <CheckBox Content="только файлы" IsChecked="{Binding FilesOnly}" Margin="0,0,12,8"/>
+                <CheckBox Content="только папки" IsChecked="{Binding FoldersOnly}" Margin="0,0,0,8"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- Results + onboarding overlay -->
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Border Style="{StaticResource CardBorder}" Padding="0">
+                <DataGrid ItemsSource="{Binding Results}" AutoGenerateColumns="False"
+                          IsReadOnly="True" SelectionMode="Single" BorderThickness="0"
+                          Background="{StaticResource SurfaceBrush}" RowBackground="{StaticResource SurfaceBrush}"
+                          GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{StaticResource BorderBrush}"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                          EnableRowVirtualization="True"
+                          SelectedItem="{Binding SelectedRow, Mode=OneWayToSource}"
+                          MouseDoubleClick="OnRowDoubleClick">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="260"/>
+                        <DataGridTextColumn Header="Путь" Binding="{Binding Path}" Width="*"/>
+                        <DataGridTextColumn Header="Размер" Binding="{Binding SizeText}" Width="90"/>
+                        <DataGridTextColumn Header="Изменён" Binding="{Binding Modified}" Width="130"/>
+                        <DataGridTextColumn Header="Тип" Binding="{Binding Type}" Width="80"/>
+                    </DataGrid.Columns>
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Открыть"
+                                      Command="{Binding PlacementTarget.DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Открыть папку"
+                                      Command="{Binding PlacementTarget.DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <MenuItem Header="Копировать путь"
+                                      Command="{Binding PlacementTarget.DataContext.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                </DataGrid>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}"
+                    Visibility="{Binding ShowOnboarding, Converter={StaticResource BoolToVis}}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460">
+                <StackPanel>
+                    <TextBlock Text="Как начать" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <TextBlock Text="1️⃣  Откройте «Настройки» и добавьте сетевой путь (например \\HOST-01\work)"
+                               TextWrapping="Wrap" Margin="0,0,0,6"/>
+                    <TextBlock Text="2️⃣  Нажмите «Обновить» и дождитесь индексации"
+                               TextWrapping="Wrap" Margin="0,0,0,6"/>
+                    <TextBlock Text="3️⃣  Начните печатать имя файла — результаты появятся сразу"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Indexing progress -->
+        <Grid Grid.Row="5" Margin="0,10,0,0"
+              Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar Grid.Column="0" Height="6" IsIndeterminate="True" VerticalAlignment="Center"
+                         Foreground="{StaticResource AccentBrush}" Background="{StaticResource BorderBrush}"
+                         BorderThickness="0"/>
+            <Button Grid.Column="1" Content="Отмена" Margin="10,0,0,0" Command="{Binding CancelRefreshCommand}"
+                    ToolTip="Остановить индексацию"/>
+        </Grid>
+
+        <!-- Status -->
+        <Border Grid.Row="6" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1" CornerRadius="6" Margin="0,10,0,0" Padding="10,6">
+            <TextBlock Text="{Binding StatusText}" Style="{StaticResource MutedText}"/>
+        </Border>
     </Grid>
 </Window>

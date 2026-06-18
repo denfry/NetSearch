@@ -41,9 +41,6 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<FileRow> Results { get; } = new();
     public FileRow? SelectedRow { get; set; }
 
-    public Array Modes => Enum.GetValues(typeof(SearchMode));
-    public Array Kinds => Enum.GetValues(typeof(EntryKind));
-
     public MainViewModel(IndexStore store, AppSettings settings, string settingsPath)
     {
         _store = store;

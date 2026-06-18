@@ -59,7 +59,7 @@ public static class PlaceholderHelper
                 new Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch),
                 tb.FontSize, new SolidColorBrush(Color.FromRgb(0x9A, 0xA0, 0xA6)),
                 VisualTreeHelper.GetDpi(tb).PixelsPerDip);
-            ctx.DrawText(ft, new Point(tb.Padding.Left + 6, (tb.ActualHeight - ft.Height) / 2));
+            ctx.DrawText(ft, new Point(tb.Padding.Left + 2, (tb.ActualHeight - ft.Height) / 2));
         }
     }
 }

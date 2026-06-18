@@ -4,3 +4,6 @@ obj/
 %LOCALAPPDATA%/
 .vs/
 publish/
+
+# Pasted screenshots / scratch images
+clipboard-*.png

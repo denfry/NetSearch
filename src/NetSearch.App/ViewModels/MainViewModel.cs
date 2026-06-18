@@ -21,6 +21,7 @@ public partial class MainViewModel : ObservableObject
     private List<FileEntry> _all = new();
     private readonly DispatcherTimer _debounce;
     private readonly DispatcherTimer _autoRefresh;
+    private CancellationTokenSource? _refreshCts;
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private SearchMode _selectedMode = SearchMode.Substring;
@@ -122,7 +123,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsBusy) return;
         IsBusy = true;
+        _refreshCts = new CancellationTokenSource();
+        var token = _refreshCts.Token;
         StatusText = "Индексирование…";
+        // Progress<T> is created on the UI thread, so its callbacks marshal back to the UI thread.
+        var progress = new Progress<CrawlProgress>(p =>
+            StatusText = $"Индексирование… {p.Count} объектов  |  {Shorten(p.CurrentDirectory)}");
         try
         {
             await Task.Run(() =>
@@ -130,18 +136,39 @@ public partial class MainViewModel : ObservableObject
                 var mgr = new IndexManager(_store, () => new Crawler());
                 foreach (var path in _settings.Roots)
                 {
+                    token.ThrowIfCancellationRequested();
                     var id = _store.UpsertRoot(path);
-                    mgr.UpdateRoot(id, path, CancellationToken.None);
+                    mgr.UpdateRoot(id, path, token, progress);
                 }
-            });
+            }, token);
             LoadIndexIntoMemory();
             StatusText = $"Обновлено в {DateTime.Now:HH:mm}. Записей: {_all.Count}";
+        }
+        catch (OperationCanceledException)
+        {
+            LoadIndexIntoMemory();
+            StatusText = $"Индексирование отменено. В индексе: {_all.Count} записей.";
         }
         catch (Exception ex)
         {
             StatusText = "Ошибка индексирования: " + ex.Message;
         }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _refreshCts?.Dispose();
+            _refreshCts = null;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelRefresh() => _refreshCts?.Cancel();
+
+    private static string Shorten(string path)
+    {
+        const int max = 70;
+        if (string.IsNullOrEmpty(path) || path.Length <= max) return path;
+        return "…" + path[^max..];
     }
 
     [RelayCommand]
@@ -207,6 +234,7 @@ public partial class MainViewModel : ObservableObject
 
     public void Shutdown()
     {
+        _refreshCts?.Cancel();
         _debounce.Stop();
         _autoRefresh.Stop();
     }

@@ -18,7 +18,8 @@ public sealed class IndexManager
         _clock = clock ?? (() => DateTimeOffset.UtcNow.ToUnixTimeSeconds());
     }
 
-    public IndexResult RebuildRoot(int rootId, string rootPath, CancellationToken ct)
+    public IndexResult RebuildRoot(int rootId, string rootPath, CancellationToken ct,
+        IProgress<CrawlProgress>? progress = null)
     {
         _store.DeleteEntriesForRoot(rootId);
         var added = 0;
@@ -26,12 +27,13 @@ public sealed class IndexManager
         {
             _store.BulkUpsert(batch);
             added += batch.Count;
-        }, ct);
+        }, ct, progress);
         _store.SetRootIndexed(rootId, _clock());
         return new IndexResult(added, 0, 0, crawl.Skipped.Count);
     }
 
-    public IndexResult UpdateRoot(int rootId, string rootPath, CancellationToken ct)
+    public IndexResult UpdateRoot(int rootId, string rootPath, CancellationToken ct,
+        IProgress<CrawlProgress>? progress = null)
     {
         var existing = _store.LoadByRoot(rootId)
             .ToDictionary(e => e.FullPath, StringComparer.OrdinalIgnoreCase);
@@ -50,7 +52,7 @@ public sealed class IndexManager
                     updated++;
             }
             _store.BulkUpsert(batch);
-        }, ct);
+        }, ct, progress);
 
         var removedIds = existing
             .Where(kv => !seen.Contains(kv.Key))

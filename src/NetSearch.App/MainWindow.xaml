@@ -19,6 +19,8 @@
                     Command="{Binding OpenSettingsCommand}"/>
             <Button DockPanel.Dock="Right" Content="Обновить" Width="90" Margin="6,0,0,0"
                     Command="{Binding RefreshCommand}" IsEnabled="{Binding IsBusy, Converter={x:Static local:NotConverter.Instance}}"/>
+            <Button DockPanel.Dock="Right" Content="Отмена" Width="80" Margin="6,0,0,0"
+                    Command="{Binding CancelRefreshCommand}" IsEnabled="{Binding IsBusy}"/>
             <Button DockPanel.Dock="Right" Content="По содержимому" Width="120"
                     Command="{Binding ContentSearchCommand}"/>
             <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"

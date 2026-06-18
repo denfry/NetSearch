@@ -91,6 +91,44 @@ public class IndexStoreTests : IDisposable
         Assert.Single(s2.LoadAll());
     }
 
+    [Fact]
+    public void OpenWithRecovery_recreates_corrupt_db_and_is_usable()
+    {
+        // Write garbage bytes to simulate a corrupt database
+        var corruptPath = Path.Combine(Path.GetTempPath(), $"netsearch_corrupt_{Guid.NewGuid():N}.db");
+        File.WriteAllBytes(corruptPath, new byte[] { 0x00, 0xFF, 0xAB, 0xCD, 0x01, 0x02, 0x03 });
+
+        IndexStore? store = null;
+        try
+        {
+            store = IndexStore.OpenWithRecovery(corruptPath, out var recovered);
+            Assert.True(recovered);
+
+            // Verify the returned store is usable
+            var roots = store.GetRoots();
+            Assert.Empty(roots);
+
+            var rootId = store.UpsertRoot(@"C:\RecoveryTest");
+            store.BulkUpsert(new[]
+            {
+                FileEntry.FromFileSystem(rootId, @"C:\RecoveryTest\file.txt", false, 42, 999)
+            });
+            var all = store.LoadAll();
+            Assert.Single(all);
+            Assert.Equal("file.txt", all[0].Name);
+            Assert.Equal(42, all[0].Size);
+        }
+        finally
+        {
+            store?.Dispose();
+            foreach (var suffix in new[] { "", "-wal", "-shm" })
+            {
+                var p = corruptPath + suffix;
+                try { if (File.Exists(p)) File.Delete(p); } catch { /* best effort */ }
+            }
+        }
+    }
+
     public void Dispose()
     {
         if (File.Exists(_dbPath)) File.Delete(_dbPath);

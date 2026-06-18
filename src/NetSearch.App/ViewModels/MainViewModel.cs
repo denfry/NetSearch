@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -50,6 +51,7 @@ public partial class MainViewModel : ObservableObject
         ConfigureAutoRefresh();
 
         LoadIndexIntoMemory();
+        CheckRootsReachability();
     }
 
     public void ConfigureAutoRefresh()
@@ -60,6 +62,18 @@ public partial class MainViewModel : ObservableObject
             _autoRefresh.Interval = TimeSpan.FromMinutes(_settings.AutoRefreshMinutes);
             _autoRefresh.Start();
         }
+    }
+
+    private void CheckRootsReachability()
+    {
+        var roots = _settings.Roots.ToList();
+        if (roots.Count == 0) return;
+        Task.Run(() => roots.Where(r => !string.IsNullOrWhiteSpace(r) && !Directory.Exists(r)).Count())
+            .ContinueWith(t =>
+            {
+                if (!t.IsFaulted && t.Result > 0)
+                    StatusText += $"  ⚠ Недоступно путей: {t.Result} — индекс может быть устаревшим.";
+            }, TaskScheduler.FromCurrentSynchronizationContext());
     }
 
     private void LoadIndexIntoMemory()
@@ -78,6 +92,8 @@ public partial class MainViewModel : ObservableObject
 
     private void Restart() { _debounce.Stop(); _debounce.Start(); }
 
+    private const int MaxDisplayedResults = 50_000;
+
     private void RunSearch()
     {
         var query = QueryBuilder.Build(SearchText, SelectedMode, MinSize, MaxSize,
@@ -92,9 +108,12 @@ public partial class MainViewModel : ObservableObject
                     return;
                 }
                 Results.Clear();
-                foreach (var e in t.Result.Take(50_000))
+                foreach (var e in t.Result.Take(MaxDisplayedResults))
                     Results.Add(new FileRow(e));
-                StatusText = $"Найдено {t.Result.Count} из {snapshot.Count}";
+                var total = t.Result.Count;
+                StatusText = total > MaxDisplayedResults
+                    ? $"Найдено {total} (показаны первые {MaxDisplayedResults}) из {snapshot.Count}"
+                    : $"Найдено {total} из {snapshot.Count}";
             }, TaskScheduler.FromCurrentSynchronizationContext());
     }
 
@@ -176,7 +195,14 @@ public partial class MainViewModel : ObservableObject
     private void CopyPath()
     {
         if (SelectedRow is null) return;
-        Clipboard.SetText(SelectedRow.Path);
+        try
+        {
+            Clipboard.SetText(SelectedRow.Path);
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            StatusText = "Не удалось скопировать: " + ex.Message;
+        }
     }
 
     public void Shutdown()

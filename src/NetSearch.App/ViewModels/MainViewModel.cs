@@ -147,6 +147,18 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void OpenSettings()
+    {
+        var vm = new SettingsViewModel(_settings, _settingsPath);
+        var win = new Views.SettingsWindow(vm) { Owner = System.Windows.Application.Current.MainWindow };
+        if (win.ShowDialog() == true)
+        {
+            ConfigureAutoRefresh();
+            StatusText = "Настройки сохранены. Нажмите «Обновить» для переиндексации.";
+        }
+    }
+
+    [RelayCommand]
     private void OpenFile()
     {
         if (SelectedRow is null) return;

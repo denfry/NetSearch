@@ -15,6 +15,8 @@
         <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,6">
             <ComboBox DockPanel.Dock="Left" Width="110" Margin="0,0,6,0"
                       ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}"/>
+            <Button DockPanel.Dock="Right" Content="Настройки" Width="90" Margin="6,0,0,0"
+                    Command="{Binding OpenSettingsCommand}"/>
             <Button DockPanel.Dock="Right" Content="Обновить" Width="90" Margin="6,0,0,0"
                     Command="{Binding RefreshCommand}" IsEnabled="{Binding IsBusy, Converter={x:Static local:NotConverter.Instance}}"/>
             <Button DockPanel.Dock="Right" Content="По содержимому" Width="120"

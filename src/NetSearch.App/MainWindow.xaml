@@ -51,9 +51,12 @@
             </DataGrid.Columns>
             <DataGrid.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="Открыть" Command="{Binding OpenFileCommand}"/>
-                    <MenuItem Header="Открыть папку" Command="{Binding OpenFolderCommand}"/>
-                    <MenuItem Header="Копировать путь" Command="{Binding CopyPathCommand}"/>
+                    <MenuItem Header="Открыть"
+                              Command="{Binding PlacementTarget.DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    <MenuItem Header="Открыть папку"
+                              Command="{Binding PlacementTarget.DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    <MenuItem Header="Копировать путь"
+                              Command="{Binding PlacementTarget.DataContext.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                 </ContextMenu>
             </DataGrid.ContextMenu>
         </DataGrid>

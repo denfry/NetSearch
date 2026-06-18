@@ -86,6 +86,11 @@ public partial class MainViewModel : ObservableObject
         Task.Run(() => SearchEngine.Search(snapshot, query))
             .ContinueWith(t =>
             {
+                if (t.IsFaulted)
+                {
+                    StatusText = "Ошибка поиска: " + (t.Exception?.GetBaseException().Message ?? "неизвестно");
+                    return;
+                }
                 Results.Clear();
                 foreach (var e in t.Result.Take(50_000))
                     Results.Add(new FileRow(e));
@@ -160,6 +165,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedRow is null) return;
         Clipboard.SetText(SelectedRow.Path);
+    }
+
+    public void Shutdown()
+    {
+        _debounce.Stop();
+        _autoRefresh.Stop();
     }
 
     private void TryStart(ProcessStartInfo psi)

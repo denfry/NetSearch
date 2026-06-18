@@ -19,7 +19,7 @@ public partial class App : Application
 
         var vm = new MainViewModel(store, settings, SettingsStore.DefaultSettingsPath);
         var window = new MainWindow { DataContext = vm };
-        window.Closed += (_, _) => store.Dispose();
+        window.Closed += (_, _) => { vm.Shutdown(); store.Dispose(); };
         window.Show();
     }
 }

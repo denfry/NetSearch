@@ -20,15 +20,20 @@ public static class PlaceholderHelper
     private static void OnPlaceholderChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not TextBox tb) return;
-        tb.Loaded -= Refresh;
-        tb.TextChanged -= Refresh;
-        tb.Loaded += Refresh;
-        tb.TextChanged += Refresh;
+        tb.Loaded -= OnLoaded;
+        tb.TextChanged -= OnTextChanged;
+        tb.IsVisibleChanged -= OnVisibleChanged;
+        tb.Loaded += OnLoaded;
+        tb.TextChanged += OnTextChanged;
+        tb.IsVisibleChanged += OnVisibleChanged;
     }
 
-    private static void Refresh(object sender, RoutedEventArgs e)
+    private static void OnLoaded(object sender, RoutedEventArgs e) => Refresh((TextBox)sender);
+    private static void OnTextChanged(object sender, TextChangedEventArgs e) => Refresh((TextBox)sender);
+    private static void OnVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) => Refresh((TextBox)sender);
+
+    private static void Refresh(TextBox tb)
     {
-        var tb = (TextBox)sender;
         var layer = AdornerLayer.GetAdornerLayer(tb);
         if (layer is null) return;
 
@@ -37,7 +42,9 @@ public static class PlaceholderHelper
             foreach (var a in existing)
                 if (a is PlaceholderAdorner pa) layer.Remove(pa);
 
-        if (string.IsNullOrEmpty(tb.Text) && !string.IsNullOrEmpty(GetPlaceholder(tb)))
+        // Only paint the placeholder when the TextBox is actually visible — otherwise a
+        // collapsed panel (e.g. the Filters row) leaves ghost text over the results.
+        if (tb.IsVisible && string.IsNullOrEmpty(tb.Text) && !string.IsNullOrEmpty(GetPlaceholder(tb)))
             layer.Add(new PlaceholderAdorner(tb, GetPlaceholder(tb)));
     }
 

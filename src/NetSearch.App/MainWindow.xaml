@@ -50,10 +50,10 @@
                          ToolTip="Регулярное выражение для опытных пользователей"/>
 
             <ToggleButton DockPanel.Dock="Right" Content="▾ Фильтры" Style="{StaticResource FilterToggle}"
-                          IsChecked="{Binding FiltersExpanded}"
+                          IsChecked="{Binding FiltersExpanded}" VerticalAlignment="Center"
                           ToolTip="Дополнительные условия: размер, дата, тип"/>
             <Button DockPanel.Dock="Right" Content="🔎 По содержимому" Command="{Binding ContentSearchCommand}"
-                    Margin="0,0,8,0"
+                    Margin="0,0,8,0" VerticalAlignment="Center"
                     ToolTip="Искать текст ВНУТРИ уже найденных по имени файлов"/>
             <TextBlock/>
         </DockPanel>
@@ -62,21 +62,21 @@
         <Border Grid.Row="3" Style="{StaticResource CardBorder}" Margin="0,10,0,0"
                 Visibility="{Binding FiltersExpanded, Converter={StaticResource BoolToVis}}">
             <WrapPanel>
-                <TextBlock Text="Размер:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBlock Text="Размер:" VerticalAlignment="Center" Margin="0,0,4,8"/>
                 <TextBox Width="80" Margin="0,0,4,8" Text="{Binding MinSize, UpdateSourceTrigger=PropertyChanged}"
                          helpers:PlaceholderHelper.Placeholder="напр. 10МБ" ToolTip="Минимальный размер (КБ/МБ/ГБ)"/>
-                <TextBlock Text="–" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBlock Text="–" VerticalAlignment="Center" Margin="0,0,4,8"/>
                 <TextBox Width="80" Margin="0,0,16,8" Text="{Binding MaxSize, UpdateSourceTrigger=PropertyChanged}"
                          helpers:PlaceholderHelper.Placeholder="напр. 1ГБ" ToolTip="Максимальный размер (КБ/МБ/ГБ)"/>
 
-                <TextBlock Text="Изменён:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBlock Text="Изменён:" VerticalAlignment="Center" Margin="0,0,4,8"/>
                 <DatePicker Width="120" Margin="0,0,4,8" SelectedDate="{Binding ModifiedAfter}"
                             ToolTip="Изменён не раньше этой даты"/>
-                <TextBlock Text="–" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBlock Text="–" VerticalAlignment="Center" Margin="0,0,4,8"/>
                 <DatePicker Width="120" Margin="0,0,16,8" SelectedDate="{Binding ModifiedBefore}"
                             ToolTip="Изменён не позже этой даты"/>
 
-                <TextBlock Text="Тип:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBlock Text="Тип:" VerticalAlignment="Center" Margin="0,0,4,8"/>
                 <Button Content="PDF" Command="{Binding QuickTypeCommand}" CommandParameter="PDF" Margin="0,0,4,8" Padding="8,4"/>
                 <Button Content="Word" Command="{Binding QuickTypeCommand}" CommandParameter="Word" Margin="0,0,4,8" Padding="8,4"/>
                 <Button Content="Excel" Command="{Binding QuickTypeCommand}" CommandParameter="Excel" Margin="0,0,4,8" Padding="8,4"/>
@@ -103,8 +103,20 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="260"/>
                         <DataGridTextColumn Header="Путь" Binding="{Binding Path}" Width="*"/>
-                        <DataGridTextColumn Header="Размер" Binding="{Binding SizeText}" Width="90"/>
-                        <DataGridTextColumn Header="Изменён" Binding="{Binding Modified}" Width="130"/>
+                        <DataGridTextColumn Header="Размер" Binding="{Binding SizeText}" Width="100">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                            <DataGridTextColumn.HeaderStyle>
+                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                    <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                </Style>
+                            </DataGridTextColumn.HeaderStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Изменён" Binding="{Binding Modified}" Width="140"/>
                         <DataGridTextColumn Header="Тип" Binding="{Binding Type}" Width="80"/>
                     </DataGrid.Columns>
                     <DataGrid.ContextMenu>
@@ -125,12 +137,18 @@
                     HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460">
                 <StackPanel>
                     <TextBlock Text="Как начать" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,10"/>
-                    <TextBlock Text="1️⃣  Откройте «Настройки» и добавьте сетевой путь (например \\HOST-01\work)"
-                               TextWrapping="Wrap" Margin="0,0,0,6"/>
-                    <TextBlock Text="2️⃣  Нажмите «Обновить» и дождитесь индексации"
-                               TextWrapping="Wrap" Margin="0,0,0,6"/>
-                    <TextBlock Text="3️⃣  Начните печатать имя файла — результаты появятся сразу"
-                               TextWrapping="Wrap"/>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,6">
+                        <Run Text="1." FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
+                        <Run Text="  Откройте «Настройки» и добавьте сетевой путь (например \\HOST-01\work)"/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,6">
+                        <Run Text="2." FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
+                        <Run Text="  Нажмите «Обновить» и дождитесь индексации"/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap">
+                        <Run Text="3." FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
+                        <Run Text="  Начните печатать имя файла — результаты появятся сразу"/>
+                    </TextBlock>
                 </StackPanel>
             </Border>
         </Grid>

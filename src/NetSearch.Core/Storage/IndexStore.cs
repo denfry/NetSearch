@@ -1,0 +1,184 @@
+using Microsoft.Data.Sqlite;
+using NetSearch.Core.Models;
+
+namespace NetSearch.Core.Storage;
+
+public sealed class IndexStore : IDisposable
+{
+    private readonly SqliteConnection _conn;
+
+    public IndexStore(string dbPath)
+    {
+        _conn = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = dbPath,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Cache = SqliteCacheMode.Private,
+        }.ToString());
+        _conn.Open();
+        Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+    }
+
+    public void Initialize()
+    {
+        Exec("""
+            CREATE TABLE IF NOT EXISTS roots (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              path TEXT NOT NULL UNIQUE,
+              last_indexed INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS entries (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              root_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              name_lower TEXT NOT NULL,
+              parent_path TEXT NOT NULL,
+              is_dir INTEGER NOT NULL,
+              size INTEGER NOT NULL,
+              ext TEXT NOT NULL,
+              modified INTEGER NOT NULL,
+              UNIQUE(root_id, parent_path, name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_entries_name_lower ON entries(name_lower);
+            CREATE INDEX IF NOT EXISTS idx_entries_ext ON entries(ext);
+            CREATE INDEX IF NOT EXISTS idx_entries_modified ON entries(modified);
+            CREATE INDEX IF NOT EXISTS idx_entries_size ON entries(size);
+            """);
+    }
+
+    public int UpsertRoot(string path)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO roots(path) VALUES($p) ON CONFLICT(path) DO NOTHING;";
+        cmd.Parameters.AddWithValue("$p", path);
+        cmd.ExecuteNonQuery();
+
+        using var sel = _conn.CreateCommand();
+        sel.CommandText = "SELECT id FROM roots WHERE path=$p;";
+        sel.Parameters.AddWithValue("$p", path);
+        return Convert.ToInt32(sel.ExecuteScalar());
+    }
+
+    public void SetRootIndexed(int rootId, long unixTime)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "UPDATE roots SET last_indexed=$t WHERE id=$id;";
+        cmd.Parameters.AddWithValue("$t", unixTime);
+        cmd.Parameters.AddWithValue("$id", rootId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<RootPath> GetRoots()
+    {
+        var list = new List<RootPath>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, path, last_indexed FROM roots ORDER BY id;";
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            list.Add(new RootPath(r.GetInt32(0), r.GetString(1), r.GetInt64(2)));
+        return list;
+    }
+
+    public void BulkUpsert(IEnumerable<FileEntry> entries)
+    {
+        using var tx = _conn.BeginTransaction();
+        using var cmd = _conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = """
+            INSERT INTO entries(root_id,name,name_lower,parent_path,is_dir,size,ext,modified)
+            VALUES($root,$name,$namel,$parent,$isdir,$size,$ext,$mod)
+            ON CONFLICT(root_id,parent_path,name) DO UPDATE SET
+              is_dir=excluded.is_dir, size=excluded.size,
+              ext=excluded.ext, modified=excluded.modified;
+            """;
+        var pRoot = cmd.Parameters.Add("$root", SqliteType.Integer);
+        var pName = cmd.Parameters.Add("$name", SqliteType.Text);
+        var pNameL = cmd.Parameters.Add("$namel", SqliteType.Text);
+        var pParent = cmd.Parameters.Add("$parent", SqliteType.Text);
+        var pIsDir = cmd.Parameters.Add("$isdir", SqliteType.Integer);
+        var pSize = cmd.Parameters.Add("$size", SqliteType.Integer);
+        var pExt = cmd.Parameters.Add("$ext", SqliteType.Text);
+        var pMod = cmd.Parameters.Add("$mod", SqliteType.Integer);
+
+        foreach (var e in entries)
+        {
+            pRoot.Value = e.RootId;
+            pName.Value = e.Name;
+            pNameL.Value = e.NameLower;
+            pParent.Value = e.ParentPath;
+            pIsDir.Value = e.IsDir ? 1 : 0;
+            pSize.Value = e.Size;
+            pExt.Value = e.Ext;
+            pMod.Value = e.Modified;
+            cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
+    public void RemoveByIds(IEnumerable<long> ids)
+    {
+        using var tx = _conn.BeginTransaction();
+        using var cmd = _conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "DELETE FROM entries WHERE id=$id;";
+        var p = cmd.Parameters.Add("$id", SqliteType.Integer);
+        foreach (var id in ids)
+        {
+            p.Value = id;
+            cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
+    public void DeleteEntriesForRoot(int rootId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM entries WHERE root_id=$r;";
+        cmd.Parameters.AddWithValue("$r", rootId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public IReadOnlyList<FileEntry> LoadAll() => Load(null);
+    public IReadOnlyList<FileEntry> LoadByRoot(int rootId) => Load(rootId);
+
+    private IReadOnlyList<FileEntry> Load(int? rootId)
+    {
+        var list = new List<FileEntry>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            "SELECT id,root_id,name,name_lower,parent_path,is_dir,size,ext,modified FROM entries"
+            + (rootId is null ? ";" : " WHERE root_id=$r;");
+        if (rootId is not null) cmd.Parameters.AddWithValue("$r", rootId.Value);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            list.Add(new FileEntry
+            {
+                Id = r.GetInt64(0),
+                RootId = r.GetInt32(1),
+                Name = r.GetString(2),
+                NameLower = r.GetString(3),
+                ParentPath = r.GetString(4),
+                IsDir = r.GetInt64(5) != 0,
+                Size = r.GetInt64(6),
+                Ext = r.GetString(7),
+                Modified = r.GetInt64(8),
+            });
+        }
+        return list;
+    }
+
+    private void Exec(string sql)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.ExecuteNonQuery();
+    }
+
+    public void Dispose()
+    {
+        _conn.Close();
+        _conn.Dispose();
+        SqliteConnection.ClearAllPools();
+    }
+}

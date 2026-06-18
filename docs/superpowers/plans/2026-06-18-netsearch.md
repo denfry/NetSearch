@@ -6,11 +6,11 @@
 
 **Architecture:** A WPF `.exe` split into a UI-free core class library (`NetSearch.Core`) and a WPF front-end (`NetSearch.App`). The core holds `IndexStore` (SQLite + in-memory list), `Crawler` (directory traversal), `IndexManager` (full/incremental indexing), `SearchEngine` (name/filter/regex matching), and `ContentSearcher` (text-in-file search over a selection). The app layer wires these to a `MainViewModel` and XAML views. All non-UI logic is unit-tested with xUnit against temp folders and temp SQLite files.
 
-**Tech Stack:** C# / .NET 8, WPF (`net8.0-windows`), `Microsoft.Data.Sqlite` 8.x, `CommunityToolkit.Mvvm` 8.x, `System.Text.Json`, xUnit + `Microsoft.NET.Test.Sdk`.
+**Tech Stack:** C# / .NET 9, WPF (`net9.0-windows`), `Microsoft.Data.Sqlite` 8.x, `CommunityToolkit.Mvvm` 8.x, `System.Text.Json`, xUnit + `Microsoft.NET.Test.Sdk`.
 
 ## Global Constraints
 
-- Target framework: `net8.0` for `NetSearch.Core` and tests; `net8.0-windows` with `<UseWPF>true</UseWPF>` for `NetSearch.App`.
+- Target framework: `net9.0` for `NetSearch.Core` and tests; `net9.0-windows` with `<UseWPF>true</UseWPF>` for `NetSearch.App`. (Only the .NET 9 SDK is installed on the target machine.)
 - Platform: Windows only. Enable long-path support (`<AppContext>` / app manifest `longPathAware`).
 - Index DB and settings live in `%LOCALAPPDATA%\NetSearch\` (`index.db`, `settings.json`).
 - All file/path comparisons for identity are case-insensitive (`StringComparer.OrdinalIgnoreCase`); store `name_lower` for fast name matching.
@@ -97,7 +97,7 @@ public class SmokeTests
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -113,7 +113,7 @@ public class SmokeTests
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net9.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -132,7 +132,7 @@ public class SmokeTests
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -1568,9 +1568,9 @@ git commit -m "feat(core): add AppSettings and JSON SettingsStore"
 **Files:**
 - Create: `src/NetSearch.App/ViewModels/QueryBuilder.cs`
 - Create: `tests/NetSearch.Core.Tests/QueryBuilderTests.cs`
-- Modify: `tests/NetSearch.Core.Tests/NetSearch.Core.Tests.csproj` (add ProjectReference to `NetSearch.App` is NOT allowed because App is `net8.0-windows`; instead place `QueryBuilder` in Core).
+- Modify: `tests/NetSearch.Core.Tests/NetSearch.Core.Tests.csproj` (add ProjectReference to `NetSearch.App` is NOT allowed because App is `net9.0-windows`; instead place `QueryBuilder` in Core).
 
-> Decision: to keep this logic unit-testable from the `net8.0` test project, `QueryBuilder` lives in **`NetSearch.Core/Search/QueryBuilder.cs`**, not in the App. Update the Files list accordingly:
+> Decision: to keep this logic unit-testable from the `net9.0` test project, `QueryBuilder` lives in **`NetSearch.Core/Search/QueryBuilder.cs`**, not in the App. Update the Files list accordingly:
 > - Create: `src/NetSearch.Core/Search/QueryBuilder.cs`
 > - Create: `tests/NetSearch.Core.Tests/QueryBuilderTests.cs`
 

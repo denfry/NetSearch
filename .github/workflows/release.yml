@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Derive version from tag
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Test
+        run: dotnet test -c Release --no-restore --verbosity normal
+
+      - name: Publish single-file exe
+        run: >
+          dotnet publish src/NetSearch.App/NetSearch.App.csproj
+          -c Release
+          -p:Version=${{ steps.ver.outputs.version }}
+          -o publish
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: NetSearch ${{ github.ref_name }}
+          files: publish/NetSearch.exe
+          generate_release_notes: true
+          fail_on_unmatched_files: true

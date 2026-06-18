@@ -7,6 +7,14 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>NetSearch</AssemblyName>
+    <Product>NetSearch</Product>
+    <Authors>denfry</Authors>
+    <Company>denfry</Company>
+    <Description>Быстрый поиск файлов и папок по сетевым (SMB) дискам — аналог WizFile.</Description>
+    <Copyright>Copyright (c) 2026 denfry</Copyright>
+    <Version>0.1.0</Version>
+    <RepositoryUrl>https://github.com/denfry/NetSearch</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>

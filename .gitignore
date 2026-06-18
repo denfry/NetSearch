@@ -1,9 +1,15 @@
+# Build output
 bin/
 obj/
-*.user
-%LOCALAPPDATA%/
-.vs/
 publish/
+artifacts/
+[Tt]est[Rr]esults/
+
+# IDE / user
+.vs/
+.idea/
+*.user
+*.suo
 
 # Pasted screenshots / scratch images
 clipboard-*.png

@@ -67,7 +67,7 @@ public sealed class ContentSearcher
                 if (hit) return new ContentMatch(entry, lineNo, line.Trim());
             }
         }
-        catch (Exception) { /* unreadable file: skip */ }
+        catch (Exception ex) when (ex is not OperationCanceledException) { /* unreadable file: skip */ }
         return null;
     }
 

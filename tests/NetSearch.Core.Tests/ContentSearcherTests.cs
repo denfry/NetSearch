@@ -59,6 +59,18 @@ public class ContentSearcherTests : IDisposable
         Assert.True(seen >= 1);
     }
 
+    [Fact]
+    public async Task SearchAsync_honors_cancellation()
+    {
+        var f = Write("a.txt", "needle");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var searcher = new ContentSearcher(new ContentSearchOptions(1_000_000, new[] { "txt" }, 2));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            searcher.SearchAsync(new[] { f }, "needle", false, null, cts.Token));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_dir)) Directory.Delete(_dir, true);

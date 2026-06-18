@@ -31,6 +31,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private EntryKind _selectedKind = EntryKind.All;
     [ObservableProperty] private string _statusText = "Готово";
     [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private DateTime? _modifiedAfter;
+    [ObservableProperty] private DateTime? _modifiedBefore;
+    [ObservableProperty] private bool _filtersExpanded;
+    [ObservableProperty] private bool _filesOnly;
+    [ObservableProperty] private bool _foldersOnly;
+    [ObservableProperty] private bool _showOnboarding = true;
 
     public ObservableCollection<FileRow> Results { get; } = new();
     public FileRow? SelectedRow { get; set; }
@@ -80,6 +86,7 @@ public partial class MainViewModel : ObservableObject
     private void LoadIndexIntoMemory()
     {
         _all = _store.LoadAll().ToList();
+        ShowOnboarding = _all.Count == 0;
         StatusText = $"Индекс: {_all.Count} записей";
         RunSearch();
     }
@@ -90,6 +97,21 @@ public partial class MainViewModel : ObservableObject
     partial void OnMaxSizeChanged(string value) => Restart();
     partial void OnExtensionsChanged(string value) => Restart();
     partial void OnSelectedKindChanged(EntryKind value) => Restart();
+    partial void OnModifiedAfterChanged(DateTime? value) => Restart();
+    partial void OnModifiedBeforeChanged(DateTime? value) => Restart();
+    partial void OnFilesOnlyChanged(bool value) => RecomputeKind();
+    partial void OnFoldersOnlyChanged(bool value) => RecomputeKind();
+
+    private void RecomputeKind()
+    {
+        SelectedKind = (FilesOnly, FoldersOnly) switch
+        {
+            (true, false) => EntryKind.FilesOnly,
+            (false, true) => EntryKind.FoldersOnly,
+            _ => EntryKind.All,
+        };
+        Restart();
+    }
 
     private void Restart() { _debounce.Stop(); _debounce.Start(); }
 
@@ -97,8 +119,11 @@ public partial class MainViewModel : ObservableObject
 
     private void RunSearch()
     {
+        DateTimeOffset? after = ModifiedAfter is { } a ? new DateTimeOffset(a.Date) : null;
+        DateTimeOffset? before = ModifiedBefore is { } b
+            ? new DateTimeOffset(b.Date.AddDays(1).AddTicks(-1)) : null;
         var query = QueryBuilder.Build(SearchText, SelectedMode, MinSize, MaxSize,
-            after: null, before: null, Extensions, SelectedKind);
+            after, before, Extensions, SelectedKind);
         var snapshot = _all;
         Task.Run(() => SearchEngine.Search(snapshot, query))
             .ContinueWith(t =>
@@ -203,6 +228,9 @@ public partial class MainViewModel : ObservableObject
             StatusText = "Настройки сохранены. Нажмите «Обновить» для переиндексации.";
         }
     }
+
+    [RelayCommand]
+    private void QuickType(string group) => Extensions = FileTypeGroups.Extensions(group);
 
     [RelayCommand]
     private void OpenFile()

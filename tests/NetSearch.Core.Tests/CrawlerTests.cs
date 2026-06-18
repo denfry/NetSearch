@@ -55,6 +55,16 @@ public class CrawlerTests : IDisposable
         Assert.Equal(0, result.Count);
     }
 
+    [Fact]
+    public void Crawl_honors_cancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel(); // already cancelled before crawl starts
+        var crawler = new Crawler(batchSize: 1);
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            crawler.Crawl(1, _root, _ => { }, cts.Token));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);

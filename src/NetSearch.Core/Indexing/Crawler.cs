@@ -38,6 +38,10 @@ public sealed class Crawler
             {
                 children = Directory.EnumerateFileSystemEntries(dir);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception)
             {
                 skipped.Add(dir);
@@ -55,6 +59,10 @@ public sealed class Crawler
                     var size = isDir ? 0 : info.Length;
                     Add(FileEntry.FromFileSystem(rootId, path, isDir, size, mod));
                     if (isDir) Recurse(path);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception)
                 {

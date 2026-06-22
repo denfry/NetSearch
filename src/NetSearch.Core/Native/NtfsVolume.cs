@@ -62,13 +62,15 @@ public sealed class NtfsVolume : IDisposable
 
     public bool DeviceControl(uint code, byte[] input, byte[] output, out uint returned)
     {
-        var inHandle = GCHandle.Alloc(input, GCHandleType.Pinned);
+        var inHandle = input.Length > 0
+            ? System.Runtime.InteropServices.GCHandle.Alloc(input, System.Runtime.InteropServices.GCHandleType.Pinned)
+            : default;
         try
         {
-            var inPtr = input.Length == 0 ? IntPtr.Zero : inHandle.AddrOfPinnedObject();
+            var inPtr = input.Length > 0 ? inHandle.AddrOfPinnedObject() : IntPtr.Zero;
             return NativeMethods.DeviceIoControl(_handle, code, inPtr, (uint)input.Length, output, (uint)output.Length, out returned, IntPtr.Zero);
         }
-        finally { inHandle.Free(); }
+        finally { if (inHandle.IsAllocated) inHandle.Free(); }
     }
 
     public void Dispose() => _handle.Dispose();

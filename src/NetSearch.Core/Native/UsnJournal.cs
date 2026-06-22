@@ -11,8 +11,9 @@ public static class UsnJournal
         var outBuf = new byte[80]; // USN_JOURNAL_DATA_V0/V1
         if (!vol.DeviceControl(NativeMethods.FSCTL_QUERY_USN_JOURNAL, Array.Empty<byte>(), outBuf, out _))
             return false;
-        journalId = BitConverter.ToInt64(outBuf, 0x00); // UsnJournalID
-        nextUsn   = BitConverter.ToInt64(outBuf, 0x08); // NextUsn
+        var state = UsnJournalData.Parse(outBuf);
+        journalId = state.JournalId;
+        nextUsn = state.NextUsn;
         return journalId != 0;
     }
 

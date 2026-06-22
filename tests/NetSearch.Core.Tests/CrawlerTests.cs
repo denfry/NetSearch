@@ -94,6 +94,45 @@ public class CrawlerTests : IDisposable
     }
 
     [Fact]
+    public void Parallel_crawl_finds_every_entry_exactly_once()
+    {
+        // Wider/deeper tree on top of the fixture (sub, a.txt, sub/b.log).
+        for (var i = 0; i < 8; i++)
+        {
+            var d = Path.Combine(_root, $"d{i}");
+            Directory.CreateDirectory(d);
+            for (var j = 0; j < 5; j++)
+                File.WriteAllText(Path.Combine(d, $"f{j}.txt"), "x");
+        }
+
+        var collected = new List<FileEntry>();
+        var crawler = new Crawler(batchSize: 4, parallelism: 4);
+        // onBatch is serialised by the crawler, so appending without a lock is safe.
+        var result = crawler.Crawl(1, _root, batch => collected.AddRange(batch), CancellationToken.None);
+
+        Assert.Equal(result.Count, collected.Count);
+        // No directory enumerated twice → no duplicate entries.
+        Assert.Equal(collected.Count, collected.Select(e => e.FullPath).Distinct().Count());
+        // Everything the sequential crawl finds, the parallel crawl finds too.
+        var sequential = new List<FileEntry>();
+        new Crawler(batchSize: 4, parallelism: 1)
+            .Crawl(1, _root, b => sequential.AddRange(b), CancellationToken.None);
+        Assert.Equal(
+            sequential.Select(e => e.FullPath).OrderBy(p => p),
+            collected.Select(e => e.FullPath).OrderBy(p => p));
+    }
+
+    [Fact]
+    public void Parallel_crawl_honors_cancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var crawler = new Crawler(batchSize: 1, parallelism: 4);
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            crawler.Crawl(1, _root, _ => { }, cts.Token));
+    }
+
+    [Fact]
     public void Crawl_reports_progress_with_running_count()
     {
         var progress = new RecordingProgress<CrawlProgress>();

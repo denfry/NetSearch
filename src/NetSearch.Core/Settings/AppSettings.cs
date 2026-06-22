@@ -6,7 +6,7 @@ public sealed class AppSettings
 {
     public List<string> Roots { get; set; } = new();
     public int AutoRefreshMinutes { get; set; } = 0; // 0 = disabled
-    public int CrawlParallelism { get; set; } = 2;   // reserved for future parallel crawl
+    public int CrawlParallelism { get; set; } = 8;   // concurrent directory enumerations (I/O-bound: > CPU count is fine over SMB)
     public long ContentMaxFileBytes { get; set; } = 5_000_000;
     public List<string> TextExtensions { get; set; } = new()
     {

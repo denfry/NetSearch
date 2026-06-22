@@ -17,7 +17,20 @@ public sealed class IndexStore : IDisposable
             Cache = SqliteCacheMode.Private,
         }.ToString());
         _conn.Open();
-        Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+        // WAL + NORMAL: durable enough for a rebuildable index, no fsync per commit.
+        // The rest trade a little RAM for markedly faster bulk writes and full-table loads:
+        //   temp_store=MEMORY  — sorts/temp B-trees stay off disk
+        //   mmap_size=256MB    — read pages straight from the mapping, fewer syscalls
+        //   cache_size=-65536  — 64 MB page cache (negative = KiB)
+        //   wal_autocheckpoint — checkpoint less often during a long bulk insert
+        Exec("""
+            PRAGMA journal_mode=WAL;
+            PRAGMA synchronous=NORMAL;
+            PRAGMA temp_store=MEMORY;
+            PRAGMA mmap_size=268435456;
+            PRAGMA cache_size=-65536;
+            PRAGMA wal_autocheckpoint=2000;
+            """);
     }
 
     public void Initialize()
@@ -42,10 +55,16 @@ public sealed class IndexStore : IDisposable
                   modified INTEGER NOT NULL,
                   UNIQUE(root_id, parent_path, name)
                 );
-                CREATE INDEX IF NOT EXISTS idx_entries_name_lower ON entries(name_lower);
-                CREATE INDEX IF NOT EXISTS idx_entries_ext ON entries(ext);
-                CREATE INDEX IF NOT EXISTS idx_entries_modified ON entries(modified);
-                CREATE INDEX IF NOT EXISTS idx_entries_size ON entries(size);
+
+                -- Searching/filtering happens in memory over the snapshot loaded by LoadAll,
+                -- never via SQL on these columns, so secondary indexes on name_lower/ext/
+                -- modified/size were pure write-amplification (four extra B-tree updates per
+                -- row) and disk bloat. Drop them; root_id lookups are already served by the
+                -- leading column of the UNIQUE(root_id, parent_path, name) index.
+                DROP INDEX IF EXISTS idx_entries_name_lower;
+                DROP INDEX IF EXISTS idx_entries_ext;
+                DROP INDEX IF EXISTS idx_entries_modified;
+                DROP INDEX IF EXISTS idx_entries_size;
                 """);
         }
     }

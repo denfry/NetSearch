@@ -66,6 +66,64 @@ public sealed class IndexStore : IDisposable
                 DROP INDEX IF EXISTS idx_entries_modified;
                 DROP INDEX IF EXISTS idx_entries_size;
                 """);
+
+            AddColumnIfMissing("entries", "frn", "INTEGER");
+            AddColumnIfMissing("roots", "usn_journal_id", "INTEGER NOT NULL DEFAULT 0");
+            AddColumnIfMissing("roots", "usn_next", "INTEGER NOT NULL DEFAULT 0");
+        }
+    }
+
+    private void AddColumnIfMissing(string table, string column, string decl)
+    {
+        using var info = _conn.CreateCommand();
+        info.CommandText = $"PRAGMA table_info({table});";
+        using var r = info.ExecuteReader();
+        while (r.Read()) if (string.Equals(r.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return;
+        r.Close();
+        Exec($"ALTER TABLE {table} ADD COLUMN {column} {decl};");
+    }
+
+    public void SetUsnState(int rootId, long journalId, long nextUsn)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "UPDATE roots SET usn_journal_id=$j, usn_next=$n WHERE id=$id;";
+            cmd.Parameters.AddWithValue("$j", journalId);
+            cmd.Parameters.AddWithValue("$n", nextUsn);
+            cmd.Parameters.AddWithValue("$id", rootId);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public bool TryGetUsnState(int rootId, out long journalId, out long nextUsn)
+    {
+        lock (_gate)
+        {
+            journalId = 0; nextUsn = 0;
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT usn_journal_id, usn_next FROM roots WHERE id=$id;";
+            cmd.Parameters.AddWithValue("$id", rootId);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return false;
+            journalId = r.GetInt64(0); nextUsn = r.GetInt64(1);
+            return journalId != 0;
+        }
+    }
+
+    public void RemoveByFrn(int rootId, IEnumerable<long> frns)
+    {
+        lock (_gate)
+        {
+            using var tx = _conn.BeginTransaction();
+            using var cmd = _conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "DELETE FROM entries WHERE root_id=$r AND frn=$f;";
+            var pr = cmd.Parameters.Add("$r", SqliteType.Integer);
+            var pf = cmd.Parameters.Add("$f", SqliteType.Integer);
+            pr.Value = rootId;
+            foreach (var f in frns) { pf.Value = f; cmd.ExecuteNonQuery(); }
+            tx.Commit();
         }
     }
 
@@ -119,11 +177,11 @@ public sealed class IndexStore : IDisposable
             using var cmd = _conn.CreateCommand();
             cmd.Transaction = tx;
             cmd.CommandText = """
-                INSERT INTO entries(root_id,name,name_lower,parent_path,is_dir,size,ext,modified)
-                VALUES($root,$name,$namel,$parent,$isdir,$size,$ext,$mod)
+                INSERT INTO entries(root_id,name,name_lower,parent_path,is_dir,size,ext,modified,frn)
+                VALUES($root,$name,$namel,$parent,$isdir,$size,$ext,$mod,$frn)
                 ON CONFLICT(root_id,parent_path,name) DO UPDATE SET
                   is_dir=excluded.is_dir, size=excluded.size,
-                  ext=excluded.ext, modified=excluded.modified;
+                  ext=excluded.ext, modified=excluded.modified, frn=excluded.frn;
                 """;
             var pRoot = cmd.Parameters.Add("$root", SqliteType.Integer);
             var pName = cmd.Parameters.Add("$name", SqliteType.Text);
@@ -133,6 +191,7 @@ public sealed class IndexStore : IDisposable
             var pSize = cmd.Parameters.Add("$size", SqliteType.Integer);
             var pExt = cmd.Parameters.Add("$ext", SqliteType.Text);
             var pMod = cmd.Parameters.Add("$mod", SqliteType.Integer);
+            var pFrn = cmd.Parameters.Add("$frn", SqliteType.Integer);
 
             foreach (var e in entries)
             {
@@ -144,6 +203,7 @@ public sealed class IndexStore : IDisposable
                 pSize.Value = e.Size;
                 pExt.Value = e.Ext;
                 pMod.Value = e.Modified;
+                pFrn.Value = (object?)e.Frn ?? DBNull.Value;
                 cmd.ExecuteNonQuery();
             }
             tx.Commit();

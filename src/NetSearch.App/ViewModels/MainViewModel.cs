@@ -155,7 +155,7 @@ public partial class MainViewModel : ObservableObject
         {
             await Task.Run(() =>
             {
-                var mgr = new IndexManager(_store, () => new Crawler());
+                var mgr = new IndexManager(_store, () => new Crawler(parallelism: _settings.CrawlParallelism));
                 foreach (var path in _settings.Roots)
                 {
                     token.ThrowIfCancellationRequested();
@@ -198,20 +198,41 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsBusy || string.IsNullOrEmpty(SearchText)) return;
         IsBusy = true;
+        _refreshCts = new CancellationTokenSource(); // shares the «Отмена» button with indexing
+        var token = _refreshCts.Token;
         try
         {
-            var current = Results.Select(r => r.Entry).ToList();
+            // Content search looks for the typed term INSIDE files. Candidates therefore must
+            // not be filtered by the name match (that would require the term to be in the file
+            // name too — why content search appeared to find nothing). We honour every other
+            // active filter (size / date / type / kind) by running the query with an empty name.
+            DateTimeOffset? after = ModifiedAfter is { } a ? new DateTimeOffset(a.Date) : null;
+            DateTimeOffset? before = ModifiedBefore is { } b
+                ? new DateTimeOffset(b.Date.AddDays(1).AddTicks(-1)) : null;
+            var filterQuery = QueryBuilder.Build("", SelectedMode, MinSize, MaxSize,
+                after, before, Extensions, SelectedKind);
+            var candidates = SearchEngine.Search(_all, filterQuery);
+
             var searcher = new ContentSearcher(new ContentSearchOptions(
                 _settings.ContentMaxFileBytes, _settings.TextExtensions, _settings.CrawlParallelism));
             var progress = new Progress<int>(n => StatusText = $"Просмотрено файлов: {n}");
-            var matches = await searcher.SearchAsync(current, SearchText,
-                useRegex: SelectedMode == SearchMode.Regex, progress, CancellationToken.None);
+            var matches = await searcher.SearchAsync(candidates, SearchText,
+                useRegex: SelectedMode == SearchMode.Regex, progress, token);
 
             Results.Clear();
             foreach (var m in matches) Results.Add(new FileRow(m.Entry));
             StatusText = $"Совпадений по содержимому: {matches.Count}";
         }
-        finally { IsBusy = false; }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Поиск по содержимому отменён.";
+        }
+        finally
+        {
+            IsBusy = false;
+            _refreshCts?.Dispose();
+            _refreshCts = null;
+        }
     }
 
     [RelayCommand]

@@ -34,33 +34,32 @@ public sealed class IndexManager
 
     public IndexResult UpdateRoot(int rootId, string rootPath, CancellationToken ct,
         IProgress<CrawlProgress>? progress = null)
-    {
-        var existing = _store.LoadByRoot(rootId)
-            .ToDictionary(e => e.FullPath, StringComparer.OrdinalIgnoreCase);
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var added = 0;
-        var updated = 0;
+        => UpdateRootWith(rootId, rootPath,
+            (onBatch, token, prog) => _crawlerFactory().Crawl(rootId, rootPath, onBatch, token, prog).Count,
+            ct, progress);
 
-        var crawl = _crawlerFactory().Crawl(rootId, rootPath, batch =>
+    public IndexResult UpdateRootWith(int rootId, string rootPath,
+        Func<Action<IReadOnlyList<FileEntry>>, CancellationToken, IProgress<CrawlProgress>?, int> enumerate,
+        CancellationToken ct, IProgress<CrawlProgress>? progress = null)
+    {
+        var existing = _store.LoadByRoot(rootId).ToDictionary(e => e.FullPath, StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var added = 0; var updated = 0;
+
+        enumerate(batch =>
         {
             foreach (var e in batch)
             {
                 seen.Add(e.FullPath);
-                if (!existing.TryGetValue(e.FullPath, out var old))
-                    added++;
-                else if (old.Size != e.Size || old.Modified != e.Modified || old.IsDir != e.IsDir)
-                    updated++;
+                if (!existing.TryGetValue(e.FullPath, out var old)) added++;
+                else if (old.Size != e.Size || old.Modified != e.Modified || old.IsDir != e.IsDir) updated++;
             }
             _store.BulkUpsert(batch);
         }, ct, progress);
 
-        var removedIds = existing
-            .Where(kv => !seen.Contains(kv.Key))
-            .Select(kv => kv.Value.Id)
-            .ToList();
+        var removedIds = existing.Where(kv => !seen.Contains(kv.Key)).Select(kv => kv.Value.Id).ToList();
         _store.RemoveByIds(removedIds);
-
         _store.SetRootIndexed(rootId, _clock());
-        return new IndexResult(added, updated, removedIds.Count, crawl.Skipped.Count);
+        return new IndexResult(added, updated, removedIds.Count, 0);
     }
 }

@@ -155,12 +155,32 @@ public partial class MainViewModel : ObservableObject
         {
             await Task.Run(() =>
             {
+                var probe = new NetSearch.Core.Native.WindowsEnvironmentProbe();
                 var mgr = new IndexManager(_store, () => new Crawler(parallelism: _settings.CrawlParallelism));
                 foreach (var path in _settings.Roots)
                 {
                     token.ThrowIfCancellationRequested();
                     var id = _store.UpsertRoot(path);
-                    mgr.UpdateRoot(id, path, token, progress);
+                    var backend = NetSearch.Core.Native.IndexStrategySelector.Select(path, probe);
+                    try
+                    {
+                        if (backend == NetSearch.Core.Native.IndexBackend.Mft && OperatingSystem.IsWindows())
+                        {
+                            var mft = new NetSearch.Core.Native.MftEnumerator();
+                            mgr.UpdateRootWith(id, path,
+                                (onBatch, ct2, prog) => { mft.Enumerate(id, path, onBatch, ct2, prog); return 0; },
+                                token, progress);
+                        }
+                        else
+                        {
+                            mgr.UpdateRoot(id, path, token, progress);
+                        }
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception) // MFT path failed → transparent fallback to the crawler
+                    {
+                        mgr.UpdateRoot(id, path, token, progress);
+                    }
                 }
             }, token);
             LoadIndexIntoMemory();

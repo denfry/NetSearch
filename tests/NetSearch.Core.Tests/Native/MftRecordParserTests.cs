@@ -58,12 +58,42 @@ public class MftRecordParserTests
     }
 
     [Fact]
-    public void Rejects_not_in_use_and_extension_records()
+    public void Rejects_not_in_use_records()
     {
         var free = new MftRecordBuilder().InUse(false).StandardInformation(Mod).FileName(5, "x", 1).Build();
         Assert.False(MftRecordParser.TryParse(free, 512, out _));
+    }
 
+    [Fact]
+    public void Rejects_extension_records()
+    {
         var ext = new MftRecordBuilder().BaseRecord(7).StandardInformation(Mod).FileName(5, "x", 1).DataResident(1).Build();
         Assert.False(MftRecordParser.TryParse(ext, 512, out _));
+    }
+
+    [Fact]
+    public void Truncated_record_returns_false_without_throwing()
+    {
+        var full = new MftRecordBuilder()
+            .StandardInformation(Mod)
+            .FileName(5, "file.txt", ns: 1)
+            .DataResident(10)
+            .Build();
+        // Pass only the first 64 bytes — well short of the attribute area.
+        var truncated = full.AsSpan(0, 64).ToArray();
+        Assert.False(MftRecordParser.TryParse(truncated, 512, out _));
+    }
+
+    [Fact]
+    public void Prefers_posix_name_over_dos_short_name()
+    {
+        var rec = new MftRecordBuilder()
+            .StandardInformation(Mod)
+            .FileName(5, "myfile~1.txt", ns: 2)   // DOS short name first
+            .FileName(5, "myfile.txt", ns: 0)       // POSIX second
+            .DataResident(1)
+            .Build();
+        Assert.True(MftRecordParser.TryParse(rec, 512, out var r));
+        Assert.Equal("myfile.txt", r.Name);
     }
 }

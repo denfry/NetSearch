@@ -39,17 +39,22 @@ public static class MftRecordParser
 
             if (type == StandardInformation && nonResident == 0)
             {
+                if (pos + 0x16 > record.Length) { pos += len; continue; }
                 int vo = BinaryPrimitives.ReadUInt16LittleEndian(record[(pos + 0x14)..]);
+                if (pos + vo + 0x10 > record.Length) { pos += len; continue; }
                 modified = MftTime.FileTimeToUnixSeconds(
                     BinaryPrimitives.ReadInt64LittleEndian(record[(pos + vo + 0x08)..]));
             }
             else if (type == FileName && nonResident == 0)
             {
+                if (pos + 0x16 > record.Length) { pos += len; continue; }
                 int vo = BinaryPrimitives.ReadUInt16LittleEndian(record[(pos + 0x14)..]);
                 int c = pos + vo;
+                if (c + 0x42 > record.Length) { pos += len; continue; }
                 long p = BinaryPrimitives.ReadInt64LittleEndian(record[c..]) & 0xFFFFFFFFFFFFL;
                 byte fnLen = record[c + 0x40];
                 byte ns = record[c + 0x41];
+                if (c + 0x42 + fnLen * 2 > record.Length) { pos += len; continue; }
                 // Prefer Win32(1)/Win32&DOS(3) over POSIX(0) over DOS(2).
                 int rank = ns switch { 1 => 0, 3 => 0, 0 => 1, _ => 2 };
                 int bestRank = bestNs switch { 1 => 0, 3 => 0, 0 => 1, 255 => 9, _ => 2 };
@@ -62,9 +67,15 @@ public static class MftRecordParser
             else if (type == Data && nameLen == 0)
             {
                 if (nonResident == 0)
+                {
+                    if (pos + 0x14 > record.Length) { pos += len; continue; }
                     size = BinaryPrimitives.ReadUInt32LittleEndian(record[(pos + 0x10)..]);
+                }
                 else
+                {
+                    if (pos + 0x38 > record.Length) { pos += len; continue; }
                     size = BinaryPrimitives.ReadInt64LittleEndian(record[(pos + 0x30)..]);
+                }
             }
             pos += len;
         }

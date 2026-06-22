@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Microsoft.Win32.SafeHandles;
@@ -20,25 +21,22 @@ public sealed class NtfsVolume : IDisposable
         var h = NativeMethods.CreateFile($@"\\.\{char.ToUpperInvariant(driveLetter)}:",
             NativeMethods.GENERIC_READ, NativeMethods.FILE_SHARE_READ | NativeMethods.FILE_SHARE_WRITE,
             IntPtr.Zero, NativeMethods.OPEN_EXISTING, 0, IntPtr.Zero);
-        if (h.IsInvalid) throw new IOException($"open volume {driveLetter}: failed", Marshal.GetLastWin32Error());
+        if (h.IsInvalid) { var err = Marshal.GetLastWin32Error(); throw new IOException($"open volume {driveLetter}: failed", new Win32Exception(err)); }
 
         var buf = new byte[512];
         if (!NativeMethods.DeviceIoControl(h, NativeMethods.FSCTL_GET_NTFS_VOLUME_DATA, IntPtr.Zero, 0,
                 buf, (uint)buf.Length, out _, IntPtr.Zero))
-        { var e = Marshal.GetLastWin32Error(); h.Dispose(); throw new IOException("NTFS volume data failed", e); }
+        { var e = Marshal.GetLastWin32Error(); h.Dispose(); throw new IOException("NTFS volume data failed", new Win32Exception(e)); }
 
-        // NTFS_VOLUME_DATA_BUFFER offsets:
-        long bytesPerCluster = BitConverter.ToInt32(buf, 0x18);   // BytesPerCluster
-        long mftStartLcn = BitConverter.ToInt64(buf, 0x20);        // MftStartLcn
-        int bytesPerRecord = BitConverter.ToInt32(buf, 0x40);      // BytesPerFileRecordSegment
-        return new NtfsVolume(h, bytesPerRecord, (int)bytesPerCluster, mftStartLcn);
+        var geo = NtfsVolumeData.Parse(buf);
+        return new NtfsVolume(h, geo.BytesPerFileRecordSegment, geo.BytesPerCluster, geo.MftStartLcn);
     }
 
     public byte[] ReadClusters(long lcn, int clusterCount)
     {
         long offset = lcn * BytesPerCluster;
         if (!NativeMethods.SetFilePointerEx(_handle, offset, out _, 0))
-            throw new IOException("seek failed", Marshal.GetLastWin32Error());
+            { var err = Marshal.GetLastWin32Error(); throw new IOException("seek failed", new Win32Exception(err)); }
         int total = clusterCount * BytesPerCluster;
         var buffer = new byte[total];
         var chunk = new byte[BytesPerCluster];  // volume reads must stay cluster-aligned
@@ -46,7 +44,7 @@ public sealed class NtfsVolume : IDisposable
         while (done < total)
         {
             if (!NativeMethods.ReadFile(_handle, chunk, (uint)BytesPerCluster, out var read, IntPtr.Zero) || read == 0)
-                throw new IOException("read failed", Marshal.GetLastWin32Error());
+                { var err = Marshal.GetLastWin32Error(); throw new IOException("read failed", new Win32Exception(err)); }
             Buffer.BlockCopy(chunk, 0, buffer, done, (int)read);
             done += (int)read;
         }

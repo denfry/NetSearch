@@ -51,5 +51,25 @@ public sealed class NtfsVolume : IDisposable
         return buffer;
     }
 
+    public byte[] ReadRecord(long recordNumber)
+    {
+        long byteOffset = MftStartLcn * BytesPerCluster + recordNumber * BytesPerFileRecordSegment;
+        long lcn = byteOffset / BytesPerCluster;
+        int within = (int)(byteOffset % BytesPerCluster);
+        var clusters = ReadClusters(lcn, (BytesPerFileRecordSegment + BytesPerCluster - 1) / BytesPerCluster + 1);
+        return clusters.AsSpan(within, BytesPerFileRecordSegment).ToArray();
+    }
+
+    public bool DeviceControl(uint code, byte[] input, byte[] output, out uint returned)
+    {
+        var inHandle = GCHandle.Alloc(input, GCHandleType.Pinned);
+        try
+        {
+            var inPtr = input.Length == 0 ? IntPtr.Zero : inHandle.AddrOfPinnedObject();
+            return NativeMethods.DeviceIoControl(_handle, code, inPtr, (uint)input.Length, output, (uint)output.Length, out returned, IntPtr.Zero);
+        }
+        finally { inHandle.Free(); }
+    }
+
     public void Dispose() => _handle.Dispose();
 }

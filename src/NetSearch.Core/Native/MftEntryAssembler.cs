@@ -24,7 +24,7 @@ public static class MftEntryAssembler
                 || full.StartsWith(rootFilter + sep, StringComparison.OrdinalIgnoreCase);
             if (!underRoot) continue;
 
-            yield return FileEntry.FromComponents(rootId, r.Name, parentPath, r.IsDir, r.Size, r.ModifiedUnix);
+            yield return FileEntry.FromComponents(rootId, r.Name, parentPath, r.IsDir, r.Size, r.ModifiedUnix, frn: rec & 0xFFFFFFFFFFFFL);
         }
     }
 }

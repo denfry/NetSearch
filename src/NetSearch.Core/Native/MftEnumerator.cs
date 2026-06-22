@@ -49,6 +49,27 @@ public sealed class MftEnumerator
         progress?.Report(new CrawlProgress(records.Count, volumeRoot));
     }
 
+    [SupportedOSPlatform("windows")]
+    public FileEntry? ReadEntryByFrn(NtfsVolume vol, int rootId, string volumeRoot, string rootFilter, long frn)
+    {
+        var bytes = vol.ReadRecord(frn);
+        if (!MftRecordParser.TryParse(bytes, 512, out var r)) return null;
+        var records = new Dictionary<long, ParsedMftRecord> { [frn] = r };
+        // Resolve the parent path by reading ancestor directory records on demand.
+        void EnsureParent(long rec)
+        {
+            var cur = records[rec].ParentRecordNumber;
+            while (cur != 5 && !records.ContainsKey(cur))
+            {
+                var pb = vol.ReadRecord(cur);
+                if (!MftRecordParser.TryParse(pb, 512, out var pr)) break;
+                records[cur] = pr; cur = pr.ParentRecordNumber;
+            }
+        }
+        EnsureParent(frn);
+        return MftEntryAssembler.Assemble(rootId, volumeRoot, rootFilter, records).FirstOrDefault();
+    }
+
     private static string NormalizeRoot(string rootPath) => rootPath.TrimEnd('\\', '/');
 
     private static IReadOnlyList<DataRun> ReadMftExtents(byte[] rec0, int recSize)

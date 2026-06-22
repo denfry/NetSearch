@@ -166,10 +166,27 @@ public partial class MainViewModel : ObservableObject
                     {
                         if (backend == NetSearch.Core.Native.IndexBackend.Mft && OperatingSystem.IsWindows())
                         {
+                            var letter = char.ToUpperInvariant(path[0]);
+                            var volumeRoot = letter + ":";
+                            var filter = path.TrimEnd('\\', '/');
+                            using var vol = NetSearch.Core.Native.NtfsVolume.Open(letter);
                             var mft = new NetSearch.Core.Native.MftEnumerator();
-                            mgr.UpdateRootWith(id, path,
-                                (onBatch, ct2, prog) => { mft.Enumerate(id, path, onBatch, ct2, prog); return 0; },
-                                token, progress);
+
+                            if (_store.TryGetUsnState(id, out var jid, out var nextUsn)
+                                && NetSearch.Core.Native.UsnJournal.JournalMatches(vol, jid))
+                            {
+                                var (newNext, changes) = NetSearch.Core.Native.UsnJournal.Read(vol, jid, nextUsn);
+                                mgr.ApplyUsnDeltas(id, changes, frn => mft.ReadEntryByFrn(vol, id, volumeRoot, filter, frn));
+                                _store.SetUsnState(id, jid, newNext);
+                            }
+                            else
+                            {
+                                mgr.UpdateRootWith(id, path,
+                                    (onBatch, ct2, prog) => { mft.Enumerate(id, path, onBatch, ct2, prog); return 0; },
+                                    token, progress);
+                                if (NetSearch.Core.Native.UsnJournal.TryQuery(vol, out var fjid, out var fnext))
+                                    _store.SetUsnState(id, fjid, fnext);
+                            }
                         }
                         else
                         {

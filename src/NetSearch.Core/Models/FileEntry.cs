@@ -11,6 +11,7 @@ public sealed record FileEntry
     public long Size { get; init; }
     public required string Ext { get; init; }
     public long Modified { get; init; }
+    public long? Frn { get; init; }
 
     public string FullPath =>
         ParentPath.Length == 0 ? Name : Path.Combine(ParentPath, Name);
@@ -21,7 +22,7 @@ public sealed record FileEntry
     /// shares a single parent string (instead of re-deriving and re-allocating an identical
     /// path per file) and no per-file path parsing is needed.
     /// </summary>
-    public static FileEntry FromComponents(int rootId, string name, string parentPath, bool isDir, long size, long modifiedUnix)
+    public static FileEntry FromComponents(int rootId, string name, string parentPath, bool isDir, long size, long modifiedUnix, long? frn = null)
     {
         return new FileEntry
         {
@@ -33,6 +34,7 @@ public sealed record FileEntry
             Size = size,
             Ext = isDir ? "" : Path.GetExtension(name).TrimStart('.').ToLowerInvariant(),
             Modified = modifiedUnix,
+            Frn = frn,
         };
     }
 

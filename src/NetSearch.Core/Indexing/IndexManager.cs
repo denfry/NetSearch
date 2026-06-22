@@ -62,4 +62,21 @@ public sealed class IndexManager
         _store.SetRootIndexed(rootId, _clock());
         return new IndexResult(added, updated, removedIds.Count, 0);
     }
+
+    public void ApplyUsnDeltas(int rootId, IReadOnlyList<NetSearch.Core.Native.UsnChange> changes,
+        Func<long, Models.FileEntry?> readEntryByFrn)
+    {
+        var frns = changes.Select(c => c.Frn).Distinct().ToList();
+        // Old rows for every touched FRN go first (handles delete + rename-away cleanly).
+        _store.RemoveByFrn(rootId, frns);
+
+        var fresh = new List<Models.FileEntry>();
+        foreach (var frn in frns)
+        {
+            var entry = readEntryByFrn(frn);
+            if (entry is not null) fresh.Add(entry);
+        }
+        if (fresh.Count > 0) _store.BulkUpsert(fresh);
+        _store.SetRootIndexed(rootId, _clock());
+    }
 }

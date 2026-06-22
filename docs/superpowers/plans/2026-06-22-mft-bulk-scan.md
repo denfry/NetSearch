@@ -988,11 +988,11 @@ public sealed class NtfsVolume : IDisposable
                 buf, (uint)buf.Length, out _, IntPtr.Zero))
         { var e = Marshal.GetLastWin32Error(); h.Dispose(); throw new IOException("NTFS volume data failed", e); }
 
-        // NTFS_VOLUME_DATA_BUFFER offsets:
-        long bytesPerCluster = BitConverter.ToInt32(buf, 0x18);   // BytesPerCluster
-        long mftStartLcn = BitConverter.ToInt64(buf, 0x20);        // MftStartLcn
-        int bytesPerRecord = BitConverter.ToInt32(buf, 0x40);      // BytesPerFileRecordSegment
-        return new NtfsVolume(h, bytesPerRecord, (int)bytesPerCluster, mftStartLcn);
+        // NTFS_VOLUME_DATA_BUFFER offsets (see NtfsVolumeData.Parse): BytesPerCluster@0x2C,
+        // BytesPerFileRecordSegment@0x30, MftStartLcn@0x40. Parsing is extracted into the pure,
+        // unit-tested NtfsVolumeData.Parse so these offsets cannot silently regress.
+        var geo = NtfsVolumeData.Parse(buf);
+        return new NtfsVolume(h, geo.BytesPerFileRecordSegment, geo.BytesPerCluster, geo.MftStartLcn);
     }
 
     public byte[] ReadClusters(long lcn, int clusterCount)

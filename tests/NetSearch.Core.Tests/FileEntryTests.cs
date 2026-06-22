@@ -33,4 +33,19 @@ public class FileEntryTests
         Assert.Equal("", e.Ext);
         Assert.Equal("SubFolder", e.Name);
     }
+
+    [Fact]
+    public void FromComponents_matches_FromFileSystem_for_the_same_path()
+    {
+        // The crawler now feeds (name, parentDir) directly; it must produce exactly what the
+        // path-parsing factory would for the equivalent full path.
+        var viaParts = FileEntry.FromComponents(1, "Report.PDF", @"\\server\share\Docs", false, 1234, 1700000000);
+        var viaPath = FileEntry.FromFileSystem(1, @"\\server\share\Docs\Report.PDF", false, 1234, 1700000000);
+
+        Assert.Equal(viaPath.Name, viaParts.Name);
+        Assert.Equal(viaPath.NameLower, viaParts.NameLower);
+        Assert.Equal(viaPath.ParentPath, viaParts.ParentPath);
+        Assert.Equal(viaPath.Ext, viaParts.Ext);
+        Assert.Equal(viaPath.FullPath, viaParts.FullPath);
+    }
 }

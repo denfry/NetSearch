@@ -15,21 +15,32 @@ public sealed record FileEntry
     public string FullPath =>
         ParentPath.Length == 0 ? Name : Path.Combine(ParentPath, Name);
 
-    public static FileEntry FromFileSystem(int rootId, string fullPath, bool isDir, long size, long modifiedUnix)
+    /// <summary>
+    /// Builds an entry from parts already known to the caller. The crawler uses this with the
+    /// directory's own path as <paramref name="parentPath"/>, so every file in one directory
+    /// shares a single parent string (instead of re-deriving and re-allocating an identical
+    /// path per file) and no per-file path parsing is needed.
+    /// </summary>
+    public static FileEntry FromComponents(int rootId, string name, string parentPath, bool isDir, long size, long modifiedUnix)
     {
-        var name = Path.GetFileName(fullPath.TrimEnd('\\', '/'));
-        var parent = Path.GetDirectoryName(fullPath.TrimEnd('\\', '/')) ?? "";
-        var ext = isDir ? "" : Path.GetExtension(name).TrimStart('.').ToLowerInvariant();
         return new FileEntry
         {
             RootId = rootId,
             Name = name,
             NameLower = name.ToLowerInvariant(),
-            ParentPath = parent,
+            ParentPath = parentPath,
             IsDir = isDir,
             Size = size,
-            Ext = ext,
+            Ext = isDir ? "" : Path.GetExtension(name).TrimStart('.').ToLowerInvariant(),
             Modified = modifiedUnix,
         };
+    }
+
+    public static FileEntry FromFileSystem(int rootId, string fullPath, bool isDir, long size, long modifiedUnix)
+    {
+        var trimmed = fullPath.TrimEnd('\\', '/');
+        var name = Path.GetFileName(trimmed);
+        var parent = Path.GetDirectoryName(trimmed) ?? "";
+        return FromComponents(rootId, name, parent, isDir, size, modifiedUnix);
     }
 }

@@ -727,6 +727,24 @@ public class MftEntryAssemblerTests
         Assert.Contains(entries, e => e.Name == "Me" && e.IsDir);
         Assert.DoesNotContain(entries, e => e.Name == "pagefile.sys");
     }
+
+    [Fact]
+    public void Sibling_directory_sharing_a_name_prefix_is_excluded()
+    {
+        var records = new Dictionary<long, ParsedMftRecord>
+        {
+            [5]  = new(true, 5, "", 0, 0),
+            [10] = new(true, 5, "Me", 0, 0),
+            [11] = new(false, 10, "in.txt", 1, 0),
+            [20] = new(true, 5, "MeToo", 0, 0),    // shares the "Me" prefix
+            [21] = new(false, 20, "out.txt", 1, 0),
+        };
+
+        var entries = MftEntryAssembler.Assemble(1, "C:", @"C:\Me", records).ToList();
+
+        Assert.Contains(entries, e => e.Name == "in.txt");
+        Assert.DoesNotContain(entries, e => e.Name == "out.txt");
+    }
 }
 ```
 
@@ -752,13 +770,17 @@ public static class MftEntryAssembler
             kv => kv.Key, kv => new MftNode(kv.Value.Name, kv.Value.ParentRecordNumber, kv.Value.IsDir));
         var dirPaths = PathBuilder.BuildDirectoryPaths(volumeRoot, nodes);
 
+        var sep = System.IO.Path.DirectorySeparatorChar;
         foreach (var (rec, r) in records)
         {
             if (rec == 5) continue; // the volume root itself is not an entry
             if (!dirPaths.TryGetValue(r.ParentRecordNumber, out var parentPath)) continue;
 
             var full = System.IO.Path.Combine(parentPath, r.Name);
-            if (!full.StartsWith(rootFilter, StringComparison.OrdinalIgnoreCase)) continue;
+            // Prefix match on a separator boundary so "C:\Me" does not capture "C:\MeToo".
+            bool underRoot = full.Equals(rootFilter, StringComparison.OrdinalIgnoreCase)
+                || full.StartsWith(rootFilter + sep, StringComparison.OrdinalIgnoreCase);
+            if (!underRoot) continue;
 
             yield return FileEntry.FromComponents(rootId, r.Name, parentPath, r.IsDir, r.Size, r.ModifiedUnix);
         }

@@ -66,7 +66,16 @@ public static class PlaceholderHelper
                 new Typeface(tb.FontFamily, tb.FontStyle, tb.FontWeight, tb.FontStretch),
                 tb.FontSize, new SolidColorBrush(Color.FromRgb(0x9A, 0xA0, 0xA6)),
                 VisualTreeHelper.GetDpi(tb).PixelsPerDip);
-            ctx.DrawText(ft, new Point(tb.Padding.Left + 2, (tb.ActualHeight - ft.Height) / 2));
+
+            // The caret/typed text starts at the inner content origin: border + padding.
+            // Match it exactly so the hint and the text the user types line up, and centre
+            // vertically within the same inner box the control template lays the text out in.
+            var left = tb.BorderThickness.Left + tb.Padding.Left;
+            var innerHeight = tb.ActualHeight
+                - tb.BorderThickness.Top - tb.BorderThickness.Bottom
+                - tb.Padding.Top - tb.Padding.Bottom;
+            var top = tb.BorderThickness.Top + tb.Padding.Top + (innerHeight - ft.Height) / 2;
+            ctx.DrawText(ft, new Point(left, top));
         }
     }
 }

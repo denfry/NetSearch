@@ -7,6 +7,11 @@ public static class SearchEngine
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
+    // Above this many entries the linear O(N) filter is worth spreading across cores; below it
+    // the PLINQ partitioning overhead dominates. AsOrdered keeps results in index order so the
+    // displayed list stays stable between runs.
+    private const int ParallelThreshold = 20_000;
+
     public static IReadOnlyList<FileEntry> Search(IReadOnlyList<FileEntry> source, SearchQuery query)
     {
         Func<FileEntry, bool> nameMatch;
@@ -24,19 +29,27 @@ public static class SearchEngine
                             .Where(x => x.Length > 0),
             StringComparer.OrdinalIgnoreCase);
 
-        var result = new List<FileEntry>();
-        foreach (var e in source)
+        bool Matches(FileEntry e)
         {
-            if (query.Kind == EntryKind.FilesOnly && e.IsDir) continue;
-            if (query.Kind == EntryKind.FoldersOnly && !e.IsDir) continue;
-            if (query.MinSize is { } min && e.Size < min) continue;
-            if (query.MaxSize is { } max && e.Size > max) continue;
-            if (query.ModifiedAfterUnix is { } after && e.Modified < after) continue;
-            if (query.ModifiedBeforeUnix is { } before && e.Modified > before) continue;
-            if (exts.Count > 0 && !exts.Contains(e.Ext)) continue;
-            if (!nameMatch(e)) continue;
-            result.Add(e);
+            if (query.Kind == EntryKind.FilesOnly && e.IsDir) return false;
+            if (query.Kind == EntryKind.FoldersOnly && !e.IsDir) return false;
+            if (query.MinSize is { } min && e.Size < min) return false;
+            if (query.MaxSize is { } max && e.Size > max) return false;
+            if (query.ModifiedAfterUnix is { } after && e.Modified < after) return false;
+            if (query.ModifiedBeforeUnix is { } before && e.Modified > before) return false;
+            if (exts.Count > 0 && !exts.Contains(e.Ext)) return false;
+            if (!nameMatch(e)) return false;
+            return true;
         }
+
+        // Regex instances are thread-safe for matching, and `exts` is only read here, so the
+        // predicate is safe to evaluate in parallel.
+        if (source.Count >= ParallelThreshold)
+            return source.AsParallel().AsOrdered().Where(Matches).ToList();
+
+        var result = new List<FileEntry>(Math.Min(source.Count, 1024));
+        foreach (var e in source)
+            if (Matches(e)) result.Add(e);
         return result;
     }
 

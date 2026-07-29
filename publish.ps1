@@ -2,6 +2,9 @@ $ErrorActionPreference = "Stop"
 
 # 1) Publish the portable single-file exe (existing behavior).
 dotnet publish src/NetSearch.App/NetSearch.App.csproj -c Release -o publish
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet publish failed with exit code $LASTEXITCODE"
+}
 Write-Host "Built publish/NetSearch.exe"
 
 # 2) Locate the Inno Setup compiler.

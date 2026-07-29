@@ -214,6 +214,9 @@
                 <DockPanel Grid.Row="2" Margin="0,0,0,8">
                     <Button DockPanel.Dock="Left" Content="▲ Вверх" Margin="0,0,8,0"
                             Command="{Binding DrillUpCommand}"/>
+                    <Button DockPanel.Dock="Right" Content="Отмена" Margin="8,0,0,0"
+                            Command="{Binding CancelScanCommand}"
+                            Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"/>
                     <ProgressBar Width="120" Height="6" IsIndeterminate="True" DockPanel.Dock="Right"
                                  Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}"
                                  Foreground="{StaticResource AccentBrush}" Background="{StaticResource BorderBrush}" BorderThickness="0"/>

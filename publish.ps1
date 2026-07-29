@@ -23,4 +23,7 @@ if (-not $iscc) {
 # 3) Compile the installer into dist/.
 New-Item -ItemType Directory -Force -Path dist | Out-Null
 & $iscc "installer/netsearch.iss"
+if ($LASTEXITCODE -ne 0) {
+    throw "ISCC failed with exit code $LASTEXITCODE"
+}
 Write-Host "Built dist/NetSearch-Setup-0.2.0.exe"

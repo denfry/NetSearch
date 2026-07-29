@@ -2,12 +2,14 @@
 bin/
 obj/
 publish/
+dist/
 artifacts/
 [Tt]est[Rr]esults/
 
 # IDE / user
 .vs/
 .idea/
+.claude/cache/
 *.user
 *.suo
 

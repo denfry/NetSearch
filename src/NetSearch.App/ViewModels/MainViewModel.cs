@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -10,6 +11,7 @@ using NetSearch.Core.Models;
 using NetSearch.Core.Search;
 using NetSearch.Core.Settings;
 using NetSearch.Core.Storage;
+using NetSearch.Core.Updates;
 
 namespace NetSearch.App.ViewModels;
 
@@ -22,6 +24,7 @@ public partial class MainViewModel : ObservableObject
     private readonly DispatcherTimer _debounce;
     private readonly DispatcherTimer _autoRefresh;
     private CancellationTokenSource? _refreshCts;
+    private readonly GitHubUpdateService _updateService = new();
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private SearchMode _selectedMode = SearchMode.Substring;
@@ -283,6 +286,64 @@ public partial class MainViewModel : ObservableObject
         {
             ConfigureAutoRefresh();
             StatusText = "Настройки сохранены. Нажмите «Обновить» для переиндексации.";
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (IsBusy) return;
+        IsBusy = true;
+        _refreshCts = new CancellationTokenSource();
+        var token = _refreshCts.Token;
+        try
+        {
+            StatusText = "Проверка обновлений на GitHub…";
+            var current = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0);
+            var update = await _updateService.CheckAsync(current, token);
+            if (update is null)
+            {
+                StatusText = $"Установлена актуальная версия {current.ToString(3)}.";
+                return;
+            }
+
+            var answer = MessageBox.Show(
+                $"Доступна NetSearch {update.Version}.\n\nСкачать, проверить и установить обновление?",
+                "Обновление NetSearch",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+            if (answer != MessageBoxResult.Yes)
+            {
+                StatusText = $"Доступна версия {update.Version}.";
+                return;
+            }
+
+            var progress = new Progress<double>(value =>
+                StatusText = $"Загрузка обновления… {value:P0}");
+            var updateDir = Path.Combine(SettingsStore.DefaultDir, "Updates", update.Version.ToString());
+            var installer = await _updateService.DownloadVerifiedAsync(
+                update, updateDir, progress, token);
+
+            StatusText = "SHA-256 проверен. Запуск установщика…";
+            Process.Start(new ProcessStartInfo(installer,
+                "/SILENT /SUPPRESSMSGBOXES /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS")
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Проверка обновления отменена.";
+        }
+        catch (Exception ex)
+        {
+            StatusText = "Не удалось обновить: " + ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+            _refreshCts?.Dispose();
+            _refreshCts = null;
         }
     }
 

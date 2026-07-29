@@ -61,6 +61,38 @@ public class IndexManagerTests : IDisposable
         Assert.Equal(new[] { "a.txt", "c.txt" }, names);
     }
 
+    [Fact]
+    public void Cancelled_update_keeps_the_previous_index_atomically()
+    {
+        File.WriteAllText(Path.Combine(_root, "old.txt"), "old");
+
+        using var store = NewStore();
+        var id = store.UpsertRoot(_root);
+        var mgr = new IndexManager(store, () => new Crawler(batchSize: 1), () => 1);
+        mgr.RebuildRoot(id, _root, CancellationToken.None);
+
+        File.Delete(Path.Combine(_root, "old.txt"));
+        File.WriteAllText(Path.Combine(_root, "new.txt"), "new");
+        using var cts = new CancellationTokenSource();
+
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            mgr.UpdateRootWith(id, _root, (onBatch, token, _) =>
+            {
+                onBatch(new[]
+                {
+                    NetSearch.Core.Models.FileEntry.FromComponents(
+                        id, "new.txt", _root, false, 3, 2)
+                });
+                cts.Cancel();
+                token.ThrowIfCancellationRequested();
+                return 1;
+            }, cts.Token));
+
+        var remaining = store.LoadAll();
+        Assert.Single(remaining);
+        Assert.Equal("old.txt", remaining[0].Name);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, true);

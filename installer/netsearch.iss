@@ -1,6 +1,8 @@
-; NetSearch installer (Inno Setup 6+). Built by publish.ps1.
+; NetSearch universal installer (Inno Setup 6.3+). Built by publish.ps1.
 #define AppName "NetSearch"
-#define AppVersion "0.2.0"
+#ifndef AppVersion
+  #define AppVersion "0.3.0"
+#endif
 #define AppPublisher "denfry"
 #define AppExe "NetSearch.exe"
 
@@ -17,10 +19,14 @@ OutputBaseFilename=NetSearch-Setup-{#AppVersion}
 SetupIconFile=..\NetSearch.ico
 Compression=lzma2
 SolidCompression=yes
-PrivilegesRequired=admin
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
+ArchitecturesAllowed=x86compatible
+ArchitecturesInstallIn64BitMode=x64os or arm64
+MinVersion=10.0.17763
 WizardStyle=modern
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -29,7 +35,9 @@ Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительно:"
 
 [Files]
-Source: "..\publish\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\publish\win-arm64\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion; Check: IsArm64
+Source: "..\publish\win-x64\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion; Check: IsX64OS
+Source: "..\publish\win-x86\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion; Check: not IsArm64 and not IsX64OS
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"

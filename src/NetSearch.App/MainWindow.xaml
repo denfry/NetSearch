@@ -24,6 +24,9 @@
             <TextBlock DockPanel.Dock="Left" Text="🔍  NetSearch" FontSize="20" FontWeight="SemiBold"
                        VerticalAlignment="Center"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="⬇  Обновление" Command="{Binding CheckForUpdatesCommand}" Margin="0,0,8,0"
+                        IsEnabled="{Binding IsBusy, Converter={x:Static local:NotConverter.Instance}}"
+                        ToolTip="Проверить новую версию в GitHub Releases"/>
                 <Button Content="⚙  Настройки" Command="{Binding OpenSettingsCommand}" Margin="0,0,8,0"
                         ToolTip="Сетевые пути, авто-обновление и параметры поиска по содержимому"/>
                 <Button Content="⟳  Обновить" Style="{StaticResource AccentButton}"

@@ -3,6 +3,15 @@ using NetSearch.Core.Models;
 
 namespace NetSearch.Core.Storage;
 
+public sealed record IndexEntryState(
+    long Id,
+    string Name,
+    string ParentPath,
+    bool IsDir,
+    long Size,
+    long Modified,
+    long? Frn);
+
 public sealed class IndexStore : IDisposable
 {
     private readonly SqliteConnection _conn;
@@ -210,6 +219,25 @@ public sealed class IndexStore : IDisposable
         }
     }
 
+    /// <summary>
+    /// Starts an atomic, streaming update of one root's index. All batches share one
+    /// transaction, which amortizes commit overhead. Dispose without Complete rolls
+    /// the transaction back and preserves the old index.
+    /// </summary>
+    public RootScanSession BeginRootScan(int rootId)
+    {
+        Monitor.Enter(_gate);
+        try
+        {
+            return new RootScanSession(this, rootId);
+        }
+        catch
+        {
+            Monitor.Exit(_gate);
+            throw;
+        }
+    }
+
     public void RemoveByIds(IEnumerable<long> ids)
     {
         lock (_gate)
@@ -241,6 +269,31 @@ public sealed class IndexStore : IDisposable
 
     public IReadOnlyList<FileEntry> LoadAll() => Load(null);
     public IReadOnlyList<FileEntry> LoadByRoot(int rootId) => Load(rootId);
+
+    public IReadOnlyList<IndexEntryState> LoadRootState(int rootId)
+    {
+        lock (_gate)
+        {
+            var list = new List<IndexEntryState>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT id,name,parent_path,is_dir,size,modified,frn FROM entries WHERE root_id=$r;";
+            cmd.Parameters.AddWithValue("$r", rootId);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add(new IndexEntryState(
+                    reader.GetInt64(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetInt64(3) != 0,
+                    reader.GetInt64(4),
+                    reader.GetInt64(5),
+                    reader.IsDBNull(6) ? null : reader.GetInt64(6)));
+            }
+            return list;
+        }
+    }
 
     private IReadOnlyList<FileEntry> Load(int? rootId)
     {
@@ -277,6 +330,115 @@ public sealed class IndexStore : IDisposable
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = sql;
         cmd.ExecuteNonQuery();
+    }
+
+    public sealed class RootScanSession : IDisposable
+    {
+        private readonly IndexStore _owner;
+        private readonly int _rootId;
+        private readonly SqliteTransaction _transaction;
+        private readonly SqliteCommand _insert;
+        private bool _completed;
+        private bool _disposed;
+
+        internal RootScanSession(IndexStore owner, int rootId)
+        {
+            _owner = owner;
+            _rootId = rootId;
+            _transaction = owner._conn.BeginTransaction();
+
+            _insert = owner._conn.CreateCommand();
+            _insert.Transaction = _transaction;
+            _insert.CommandText = """
+                INSERT INTO entries(root_id,name,name_lower,parent_path,is_dir,size,ext,modified,frn)
+                VALUES($root,$name,$namel,$parent,$isdir,$size,$ext,$mod,$frn)
+                ON CONFLICT(root_id,parent_path,name) DO UPDATE SET
+                  name_lower=excluded.name_lower, is_dir=excluded.is_dir,
+                  size=excluded.size, ext=excluded.ext,
+                  modified=excluded.modified, frn=excluded.frn
+                WHERE entries.name_lower<>excluded.name_lower
+                   OR entries.is_dir<>excluded.is_dir
+                   OR entries.size<>excluded.size
+                   OR entries.ext<>excluded.ext
+                   OR entries.modified<>excluded.modified
+                   OR NOT (entries.frn IS excluded.frn);
+                """;
+            _insert.Parameters.AddWithValue("$root", rootId);
+            _insert.Parameters.Add("$name", SqliteType.Text);
+            _insert.Parameters.Add("$namel", SqliteType.Text);
+            _insert.Parameters.Add("$parent", SqliteType.Text);
+            _insert.Parameters.Add("$isdir", SqliteType.Integer);
+            _insert.Parameters.Add("$size", SqliteType.Integer);
+            _insert.Parameters.Add("$ext", SqliteType.Text);
+            _insert.Parameters.Add("$mod", SqliteType.Integer);
+            _insert.Parameters.Add("$frn", SqliteType.Integer);
+            _insert.Prepare();
+        }
+
+        public void AddBatch(IEnumerable<FileEntry> entries)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            foreach (var entry in entries)
+            {
+                _insert.Parameters["$name"].Value = entry.Name;
+                _insert.Parameters["$namel"].Value = entry.NameLower;
+                _insert.Parameters["$parent"].Value = entry.ParentPath;
+                _insert.Parameters["$isdir"].Value = entry.IsDir ? 1 : 0;
+                _insert.Parameters["$size"].Value = entry.Size;
+                _insert.Parameters["$ext"].Value = entry.Ext;
+                _insert.Parameters["$mod"].Value = entry.Modified;
+                _insert.Parameters["$frn"].Value = (object?)entry.Frn ?? DBNull.Value;
+                _insert.ExecuteNonQuery();
+            }
+        }
+
+        public int Complete(IEnumerable<long> removedIds, long indexedAt)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_completed) throw new InvalidOperationException("The root scan was already completed.");
+
+            var removed = 0;
+            using (var delete = _owner._conn.CreateCommand())
+            {
+                delete.Transaction = _transaction;
+                delete.CommandText = "DELETE FROM entries WHERE id=$id;";
+                var id = delete.Parameters.Add("$id", SqliteType.Integer);
+                foreach (var removedId in removedIds)
+                {
+                    id.Value = removedId;
+                    removed += delete.ExecuteNonQuery();
+                }
+            }
+
+            using (var updateRoot = _owner._conn.CreateCommand())
+            {
+                updateRoot.Transaction = _transaction;
+                updateRoot.CommandText =
+                    "UPDATE roots SET last_indexed=$indexedAt WHERE id=$root;";
+                updateRoot.Parameters.AddWithValue("$root", _rootId);
+                updateRoot.Parameters.AddWithValue("$indexedAt", indexedAt);
+                updateRoot.ExecuteNonQuery();
+            }
+
+            _transaction.Commit();
+            _completed = true;
+            return removed;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            try
+            {
+                _insert.Dispose();
+                _transaction.Dispose(); // rolls back automatically when Complete was not called
+            }
+            finally
+            {
+                _disposed = true;
+                Monitor.Exit(_owner._gate);
+            }
+        }
     }
 
     public void Dispose()

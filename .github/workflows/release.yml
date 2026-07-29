@@ -11,10 +11,10 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: '9.0.x'
 
@@ -29,17 +29,17 @@ jobs:
       - name: Test
         run: dotnet test -c Release --no-restore --verbosity normal
 
-      - name: Publish single-file exe
-        run: >
-          dotnet publish src/NetSearch.App/NetSearch.App.csproj
-          -c Release
-          -p:Version=${{ steps.ver.outputs.version }}
-          -o publish
+      - name: Install Inno Setup
+        run: choco install innosetup --version=6.7.3 --no-progress -y
+
+      - name: Build portable apps and universal installer
+        shell: pwsh
+        run: ./publish.ps1 -Version '${{ steps.ver.outputs.version }}'
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@c12583777ecdfd3be55c69cf75464299dc01057e # v3
         with:
           name: NetSearch ${{ github.ref_name }}
-          files: publish/NetSearch.exe
+          files: dist/*
           generate_release_notes: true
           fail_on_unmatched_files: true

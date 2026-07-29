@@ -42,25 +42,43 @@ public sealed class IndexManager
         Func<Action<IReadOnlyList<FileEntry>>, CancellationToken, IProgress<CrawlProgress>?, int> enumerate,
         CancellationToken ct, IProgress<CrawlProgress>? progress = null)
     {
-        var existing = _store.LoadByRoot(rootId).ToDictionary(e => e.FullPath, StringComparer.OrdinalIgnoreCase);
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var added = 0; var updated = 0;
-
+        var existing = _store.LoadRootState(rootId).ToDictionary(
+            entry => new EntryKey(entry.ParentPath, entry.Name),
+            EntryKeyComparer.Instance);
+        var added = 0;
+        var updated = 0;
+        using var scan = _store.BeginRootScan(rootId);
         enumerate(batch =>
         {
-            foreach (var e in batch)
+            foreach (var entry in batch)
             {
-                seen.Add(e.FullPath);
-                if (!existing.TryGetValue(e.FullPath, out var old)) added++;
-                else if (old.Size != e.Size || old.Modified != e.Modified || old.IsDir != e.IsDir) updated++;
+                if (!existing.Remove(new EntryKey(entry.ParentPath, entry.Name), out var old))
+                    added++;
+                else if (old.Size != entry.Size || old.Modified != entry.Modified
+                         || old.IsDir != entry.IsDir || old.Frn != entry.Frn)
+                    updated++;
             }
-            _store.BulkUpsert(batch);
+            scan.AddBatch(batch);
         }, ct, progress);
+        ct.ThrowIfCancellationRequested();
+        var removed = scan.Complete(existing.Values.Select(entry => entry.Id), _clock());
+        return new IndexResult(added, updated, removed, 0);
+    }
 
-        var removedIds = existing.Where(kv => !seen.Contains(kv.Key)).Select(kv => kv.Value.Id).ToList();
-        _store.RemoveByIds(removedIds);
-        _store.SetRootIndexed(rootId, _clock());
-        return new IndexResult(added, updated, removedIds.Count, 0);
+    private readonly record struct EntryKey(string ParentPath, string Name);
+
+    private sealed class EntryKeyComparer : IEqualityComparer<EntryKey>
+    {
+        public static EntryKeyComparer Instance { get; } = new();
+
+        public bool Equals(EntryKey x, EntryKey y) =>
+            StringComparer.OrdinalIgnoreCase.Equals(x.ParentPath, y.ParentPath)
+            && StringComparer.OrdinalIgnoreCase.Equals(x.Name, y.Name);
+
+        public int GetHashCode(EntryKey obj) =>
+            HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.ParentPath),
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Name));
     }
 
     public void ApplyUsnDeltas(int rootId, IReadOnlyList<NetSearch.Core.Native.UsnChange> changes,

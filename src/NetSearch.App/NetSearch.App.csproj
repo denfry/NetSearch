@@ -28,4 +28,7 @@
   <ItemGroup>
     <ProjectReference Include="..\NetSearch.Core\NetSearch.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="..\..\NetSearch.ico" Link="NetSearch.ico" />
+  </ItemGroup>
 </Project>

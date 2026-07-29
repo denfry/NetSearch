@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\NetSearch.ico</ApplicationIcon>
     <AssemblyName>NetSearch</AssemblyName>
     <Product>NetSearch</Product>
     <Authors>denfry</Authors>

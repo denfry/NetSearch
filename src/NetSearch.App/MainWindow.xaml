@@ -4,7 +4,8 @@
         xmlns:local="clr-namespace:NetSearch.App"
         xmlns:helpers="clr-namespace:NetSearch.App.Helpers"
         Title="NetSearch" Height="680" Width="1060"
-        Background="{StaticResource BgBrush}" FontFamily="Segoe UI">
+        Background="{StaticResource BgBrush}" FontFamily="Segoe UI"
+        Icon="..\..\..\NetSearch.ico">
     <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>   <!-- 0 header -->

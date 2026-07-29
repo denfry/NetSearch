@@ -165,6 +165,15 @@
         <Setter Property="Padding" Value="12"/>
     </Style>
 
+    <Style x:Key="WarningBanner" TargetType="Border">
+        <Setter Property="Background" Value="#3A2A00"/>
+        <Setter Property="BorderBrush" Value="#7A5A00"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="Margin" Value="0,0,0,10"/>
+    </Style>
+
     <!-- CheckBox default text colour -->
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>

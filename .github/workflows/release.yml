@@ -30,7 +30,7 @@ jobs:
         run: dotnet test -c Release --no-restore --verbosity normal
 
       - name: Install Inno Setup
-        run: choco install innosetup --version=6.7.3 --no-progress -y
+        run: choco install innosetup --version=6.7.1 --no-progress -y
 
       - name: Build portable apps and universal installer
         shell: pwsh

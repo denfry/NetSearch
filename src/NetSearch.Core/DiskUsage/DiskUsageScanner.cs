@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using NetSearch.Core.Indexing;
 using NetSearch.Core.Native;
 
@@ -32,6 +33,7 @@ public sealed class DiskUsageScanner
         return builder.Build();
     }
 
+    [SupportedOSPlatform("windows")]
     private static FolderNode ScanViaMft(string driveRoot, CancellationToken ct, IProgress<CrawlProgress>? progress)
     {
         var builder = new FolderTreeBuilder(driveRoot);

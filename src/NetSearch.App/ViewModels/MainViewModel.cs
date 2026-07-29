@@ -40,6 +40,7 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<FileRow> Results { get; } = new();
     public FileRow? SelectedRow { get; set; }
+    public DiskUsageViewModel Disk { get; } = new();
 
     public MainViewModel(IndexStore store, AppSettings settings, string settingsPath)
     {

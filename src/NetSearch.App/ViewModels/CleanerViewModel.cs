@@ -73,9 +73,14 @@ public partial class CleanerViewModel : ObservableObject
         if (chosen.Count == 0) { Status = "Нечего удалять — сначала отсканируйте и выберите категории."; return; }
 
         long total = chosen.Sum(c => c.SizeBytes);
+        int totalItems = chosen.Sum(c => c.ItemCount);
+        var permanentCategories = chosen.Where(c => !c.UsesRecycleBin).Select(c => c.DisplayName).ToList();
+        var permanentNote = permanentCategories.Count > 0
+            ? $"\n\nБезвозвратно (не в Корзину): {string.Join(", ", permanentCategories)}."
+            : "";
         var confirm = MessageBox.Show(
-            $"Удалить {SizeFormatter.Format(total)} из {chosen.Count} категорий?\n\n" +
-            "Файлы пользователя (документы, загрузки) не затрагиваются. Где возможно — в Корзину.",
+            $"Удалить {SizeFormatter.Format(total)} ({totalItems} объектов) из {chosen.Count} категорий?\n\n" +
+            "Файлы пользователя (документы, загрузки) не затрагиваются. Где возможно — в Корзину." + permanentNote,
             "Подтверждение очистки", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.OK) return;
 

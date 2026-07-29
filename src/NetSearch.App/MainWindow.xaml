@@ -326,6 +326,10 @@
                                                     Visibility="{Binding NeedsAdmin, Converter={StaticResource BoolToVis}}">
                                                 <TextBlock Text="админ" FontSize="10" Foreground="White"/>
                                             </Border>
+                                            <Border Background="#7A2A2A" CornerRadius="3" Padding="5,1" Margin="8,0,0,0"
+                                                    Visibility="{Binding UsesRecycleBin, Converter={StaticResource InverseBoolToVis}}">
+                                                <TextBlock Text="без корзины" FontSize="10" Foreground="White"/>
+                                            </Border>
                                         </StackPanel>
                                         <TextBlock Text="{Binding Description}" Style="{StaticResource MutedText}"/>
                                     </StackPanel>

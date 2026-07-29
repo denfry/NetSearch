@@ -6,7 +6,9 @@
         Title="NetSearch" Height="680" Width="1060"
         Background="{StaticResource BgBrush}" FontFamily="Segoe UI"
         Icon="NetSearch.ico">
-    <Grid Margin="14">
+    <TabControl Margin="8" Background="{StaticResource BgBrush}" BorderThickness="0">
+        <TabItem Header="Поиск">
+        <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>   <!-- 0 header -->
             <RowDefinition Height="Auto"/>   <!-- 1 search -->
@@ -174,4 +176,14 @@
             <TextBlock Text="{Binding StatusText}" Style="{StaticResource MutedText}"/>
         </Border>
     </Grid>
+        </TabItem>
+        <TabItem Header="Локальные диски">
+            <!-- Filled in Task 9 -->
+            <Grid/>
+        </TabItem>
+        <TabItem Header="Очистка">
+            <!-- Filled in Task 15 -->
+            <Grid/>
+        </TabItem>
+    </TabControl>
 </Window>

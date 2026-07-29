@@ -6,13 +6,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\NetSearch.ico</ApplicationIcon>
     <AssemblyName>NetSearch</AssemblyName>
     <Product>NetSearch</Product>
     <Authors>denfry</Authors>
     <Company>denfry</Company>
     <Description>Быстрый поиск файлов и папок по сетевым (SMB) дискам — аналог WizFile.</Description>
     <Copyright>Copyright (c) 2026 denfry</Copyright>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <RepositoryUrl>https://github.com/denfry/NetSearch</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -26,5 +27,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NetSearch.Core\NetSearch.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="..\..\NetSearch.ico" Link="NetSearch.ico" />
   </ItemGroup>
 </Project>

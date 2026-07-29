@@ -24,11 +24,14 @@ Windows. NetSearch индексирует заданные сетевые пут
 
 ## Установка
 
-Скачайте последний `NetSearch.exe` со страницы
-[Releases](https://github.com/denfry/NetSearch/releases/latest) и запустите —
-установка не требуется.
+**Вариант 1 — установщик (рекомендуется):** скачайте `NetSearch-Setup-0.2.0.exe`
+со страницы [Releases](https://github.com/denfry/NetSearch/releases/latest) и
+запустите — ярлыки и деинсталлятор создаются автоматически.
+
+**Вариант 2 — портативно:** скачайте `NetSearch.exe` и запустите без установки.
 
 > Требования: Windows 10/11 (x64). Среда выполнения .NET встроена в `.exe`.
+> Для быстрого сканирования локальных дисков и очистки нужны права администратора.
 
 ## Использование
 
@@ -50,7 +53,7 @@ Windows. NetSearch индексирует заданные сетевые пут
 ```bash
 dotnet build          # сборка
 dotnet test           # тесты
-pwsh ./publish.ps1    # портативный publish/NetSearch.exe
+pwsh ./publish.ps1    # портативный publish/NetSearch.exe + dist/NetSearch-Setup-0.2.0.exe (нужен Inno Setup)
 ```
 
 ## Стек

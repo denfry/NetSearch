@@ -1,18 +1,18 @@
 ---
-name: Предложение
-about: Идея или улучшение
+name: Feature request
+about: An idea or improvement
 title: "[Feature]: "
 labels: [enhancement]
 ---
 
-## Проблема
-Какую задачу или неудобство это решает.
+## Problem
+What task or inconvenience this addresses.
 
-## Предлагаемое решение
-Как это могло бы работать.
+## Proposed solution
+How it could work.
 
-## Альтернативы
-Что ещё рассматривали.
+## Alternatives
+What else was considered.
 
-## Дополнительно
-Контекст, примеры, ссылки на аналоги (например, поведение WizFile).
+## Additional information
+Context, examples, links to similar tools (for example, WizFile behavior).

@@ -1,25 +1,25 @@
 ---
-name: Баг-репорт
-about: Сообщить об ошибке в NetSearch
+name: Bug report
+about: Report a bug in NetSearch
 title: "[Bug]: "
 labels: [bug]
 ---
 
-## Описание
-Что пошло не так.
+## Description
+What went wrong.
 
-## Шаги воспроизведения
-1. …
-2. …
-3. …
+## Steps to reproduce
+1. ...
+2. ...
+3. ...
 
-## Ожидаемое поведение
-Что должно было произойти.
+## Expected behavior
+What should have happened.
 
-## Окружение
-- Версия NetSearch:
-- Windows (10/11, сборка):
-- Тип путей (UNC `\\host\share`, диск `Z:\`, локальный):
+## Environment
+- NetSearch version:
+- Windows (10/11, build):
+- Path type (UNC `\\host\share`, drive `Z:\`, local):
 
-## Дополнительно
-Скриншоты, текст ошибки, размер индекса — если уместно.
+## Additional information
+Screenshots, error text, index size, if relevant.

@@ -1,14 +1,14 @@
-## Что меняется
-Краткое описание изменений.
+## What changes
+A short description of the changes.
 
-## Зачем
-Связанная задача / Issue (`Closes #…`) и мотивация.
+## Why
+Related issue (`Closes #...`) and motivation.
 
-## Проверка
-- [ ] `dotnet build` проходит
-- [ ] `dotnet test` проходит
-- [ ] новая логика в `NetSearch.Core` покрыта тестами
-- [ ] при изменении поведения обновлён `CHANGELOG.md`
+## Verification
+- [ ] `dotnet build` passes
+- [ ] `dotnet test` passes
+- [ ] new logic in `NetSearch.Core` is covered by tests
+- [ ] `CHANGELOG.md` is updated if behavior changes
 
-## Скриншоты
-Для изменений UI — до/после.
+## Screenshots
+For UI changes, before and after.
